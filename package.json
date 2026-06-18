@@ -17,9 +17,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --build --dry || tsc -b",
-    "dev:api": "npm run dev -w @csat/api",
-    "dev:worker": "npm run dev -w @csat/worker",
-    "dev:scheduler": "npm run dev -w @csat/scheduler"
+    "dev:api": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=dev -- npm run dev -w @csat/api",
+    "dev:worker": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=dev -- npm run dev -w @csat/worker",
+    "dev:scheduler": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=dev -- npm run dev -w @csat/scheduler"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

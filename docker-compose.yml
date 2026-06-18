@@ -1,7 +1,14 @@
 # Development stack. Start with `make dev`, stop with `make down`.
 # All three Node services share one dev image and the same bind-mounted source;
-# only the start command differs. They connect to the MongoDB Atlas cluster
-# configured via MONGO_URI in .env.
+# only the start command differs.
+#
+# Secrets are NOT in .env anymore — they live in Infisical. The `dev:*` npm
+# scripts wrap each process in `infisical run`, which fetches secrets at boot
+# using INFISICAL_TOKEN + INFISICAL_API_URL. Export those on the host first:
+#   export INFISICAL_API_URL=https://<infisical-host>/api
+#   export INFISICAL_TOKEN=$(infisical login --method=universal-auth \
+#       --client-id=$INFISICAL_CLIENT_ID --client-secret=$INFISICAL_CLIENT_SECRET --plain --silent)
+# (see .env.bootstrap.example). Then `make dev`.
 
 services:
   api:
@@ -9,8 +16,11 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     command: npm run dev:api
-    env_file:
-      - .env
+    environment:
+      - INFISICAL_API_URL=${INFISICAL_API_URL}
+      - INFISICAL_TOKEN=${INFISICAL_TOKEN}
+      - INFISICAL_PROJECT_ID=614c0077-6657-4956-bcdb-be85c86131c8
+      - INFISICAL_ENV=dev
     ports:
       - "4000:4000"
     volumes:
@@ -24,8 +34,11 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     command: npm run dev:worker
-    env_file:
-      - .env
+    environment:
+      - INFISICAL_API_URL=${INFISICAL_API_URL}
+      - INFISICAL_TOKEN=${INFISICAL_TOKEN}
+      - INFISICAL_PROJECT_ID=614c0077-6657-4956-bcdb-be85c86131c8
+      - INFISICAL_ENV=dev
     volumes:
       - .:/app
       - /app/node_modules
@@ -37,8 +50,11 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     command: npm run dev:scheduler
-    env_file:
-      - .env
+    environment:
+      - INFISICAL_API_URL=${INFISICAL_API_URL}
+      - INFISICAL_TOKEN=${INFISICAL_TOKEN}
+      - INFISICAL_PROJECT_ID=614c0077-6657-4956-bcdb-be85c86131c8
+      - INFISICAL_ENV=dev
     volumes:
       - .:/app
       - /app/node_modules

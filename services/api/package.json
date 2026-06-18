@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc --build",
     "clean": "tsc --build --clean",
-    "start": "node dist/index.js",
+    "start": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=${INFISICAL_ENV:-prod} -- node dist/index.js",
     "dev": "nodemon"
   },
   "dependencies": {
