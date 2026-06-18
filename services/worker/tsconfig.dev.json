@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "baseUrl": ".",
+    "paths": {
+      "@csat/shared": ["../../packages/shared/src/index.ts"]
+    }
+  },
+  "ts-node": {
+    "transpileOnly": true,
+    "files": true
+  }
+}

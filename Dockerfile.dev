@@ -1,0 +1,22 @@
+# Shared development image for all services.
+# Source is bind-mounted at runtime (see docker-compose.yml); nodemon + ts-node
+# give live reload. node_modules lives in an anonymous volume so the host's
+# (empty) node_modules never shadows the installed deps.
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install workspace deps first for better layer caching.
+COPY package.json package-lock.json* ./
+COPY packages/shared/package.json packages/shared/
+COPY services/api/package.json services/api/
+COPY services/worker/package.json services/worker/
+COPY services/scheduler/package.json services/scheduler/
+
+RUN npm install
+
+# App source is bind-mounted in dev; copy is a fallback for plain `docker build`.
+COPY . .
+
+# Overridden per-service via compose `command`.
+CMD ["npm", "run", "dev:api"]

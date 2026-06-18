@@ -1,0 +1,15 @@
+{
+  "name": "@csat/scheduler",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "start": "node dist/index.js",
+    "dev": "nodemon"
+  },
+  "dependencies": {
+    "@csat/shared": "*"
+  }
+}

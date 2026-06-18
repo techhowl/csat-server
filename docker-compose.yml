@@ -1,0 +1,50 @@
+# Development stack. Start with `make dev`, stop with `make down`.
+# All three Node services share one dev image and the same bind-mounted source;
+# only the start command differs. They connect to the MongoDB Atlas cluster
+# configured via MONGO_URI in .env.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: npm run dev:api
+    env_file:
+      - .env
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - csat
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: npm run dev:worker
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - csat
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: npm run dev:scheduler
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - csat
+
+networks:
+  csat:
+    driver: bridge

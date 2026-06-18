@@ -1,0 +1,20 @@
+{
+  "name": "@csat/api",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "start": "node dist/index.js",
+    "dev": "nodemon"
+  },
+  "dependencies": {
+    "@csat/shared": "*",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21"
+  }
+}
