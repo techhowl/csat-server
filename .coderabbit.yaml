@@ -3,12 +3,11 @@ language: en-US
 
 reviews:
   profile: assertive
-  request_changes_workflow: false
   high_level_summary: true
   review_status: true
+
   auto_review:
     enabled: true
-    drafts: false
 
 tools:
   github-checks:
