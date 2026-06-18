@@ -4,6 +4,7 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.bootstrap.example
 *.log
 logs/
 .DS_Store

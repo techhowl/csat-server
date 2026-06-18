@@ -15,6 +15,12 @@ COPY services/scheduler/package.json services/scheduler/
 
 RUN npm install
 
+# Infisical CLI — the dev:* scripts wrap each process in `infisical run`,
+# which fetches secrets at boot using INFISICAL_TOKEN + INFISICAL_API_URL.
+RUN apk add --no-cache bash curl \
+ && curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.alpine.sh' | bash \
+ && apk add --no-cache infisical
+
 # App source is bind-mounted in dev; copy is a fallback for plain `docker build`.
 COPY . .
 

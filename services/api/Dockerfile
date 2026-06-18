@@ -15,7 +15,14 @@ RUN npm run build -w @csat/shared && npm run build -w @csat/api \
 
 FROM node:20-alpine AS runner
 ENV NODE_ENV=production
+ENV INFISICAL_ENV=prod
+ENV INFISICAL_PROJECT_ID=614c0077-6657-4956-bcdb-be85c86131c8
 WORKDIR /app
+# Infisical CLI — installed as root before dropping privileges. `infisical run`
+# fetches secrets at boot using INFISICAL_TOKEN + INFISICAL_API_URL (passed at runtime).
+RUN apk add --no-cache bash curl \
+ && curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.alpine.sh' | bash \
+ && apk add --no-cache infisical
 # Run as the built-in unprivileged user.
 USER node
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
@@ -25,4 +32,4 @@ COPY --from=builder --chown=node:node /app/packages/shared/dist ./packages/share
 COPY --from=builder --chown=node:node /app/services/api/package.json ./services/api/package.json
 COPY --from=builder --chown=node:node /app/services/api/dist ./services/api/dist
 EXPOSE 4000
-CMD ["node", "services/api/dist/index.js"]
+CMD infisical run --projectId "$INFISICAL_PROJECT_ID" --env "$INFISICAL_ENV" -- node services/api/dist/index.js
