@@ -9,9 +9,10 @@ name: Static checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev] # merge into dev → staging build; merge into main → prod build
   pull_request:
-    branches: [main]
+    branches: [main, dev] # PRs into either branch run checks only (no image push)
+  workflow_dispatch: # manual "Run workflow" button for testing
 
 # Cancel an in-progress run if you push again to the same branch/PR.
 concurrency:
@@ -99,3 +100,53 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: semgrep scan --config=auto --error
+
+  # Stage 3 — Build per-service production images and push to GHCR (private).
+  # Runs only after Stage 1 + Stage 2 pass, and only on branch pushes (merges
+  # into dev/main) or manual dispatch — never on PRs (fork tokens lack
+  # packages:write, and PR images shouldn't pollute the registry).
+  # Tags: branch name (:dev / :main) + short SHA always, plus :latest on main.
+  build-and-push:
+    name: Docker build & push (GHCR)
+    needs: [lint, typecheck, test]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, worker, scheduler]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata (tags + OCI labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/csat-${{ matrix.service }}
+          tags: |
+            type=sha,format=short
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
