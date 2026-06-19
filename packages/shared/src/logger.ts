@@ -8,7 +8,7 @@ import { config } from "./config";
  * connection strings into the logger. Log identifiers, not secrets.
  */
 
-// Dev format: timestamp + message. 
+// Dev format: timestamp + message.
 const devFormat = winston.format.combine(
   winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
   winston.format.printf(
@@ -23,7 +23,7 @@ const prodFormat = winston.format.combine(
   winston.format.json()
 );
 
-// Logger create method for services to create their own logger with the service name as metadata. allows for filtering by service. 
+// Logger create method for services to create their own logger with the service name as metadata. allows for filtering by service.
 export function createLogger(service: string): winston.Logger {
   return winston.createLogger({
     level: config.logLevel,
