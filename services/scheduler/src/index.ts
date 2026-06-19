@@ -14,7 +14,9 @@ async function tick(): Promise<void> {
   if (running) return;
   running = true;
   try {
-    log.debug("scheduler tick", { mongo: database.isConnected() ? "up" : "down" });
+    log.debug("scheduler tick", {
+      mongo: database.isConnected() ? "up" : "down",
+    });
     // TODO: evaluate due schedules and enqueue work for the worker.
   } catch (err) {
     log.error("scheduler tick failed", { message: (err as Error).message });
@@ -25,7 +27,9 @@ async function tick(): Promise<void> {
 
 async function bootstrap(): Promise<void> {
   await database.connect();
-  log.info("scheduler started", { intervalMs: config.scheduler.tickIntervalMs });
+  log.info("scheduler started", {
+    intervalMs: config.scheduler.tickIntervalMs,
+  });
   timer = setInterval(() => void tick(), config.scheduler.tickIntervalMs);
   registerShutdown();
 }

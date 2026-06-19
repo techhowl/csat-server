@@ -17,7 +17,6 @@ const log = createLogger("mongo");
  * races during boot.
  */
 class Database {
-
   // single instance of the database connection across the process
   private static instance: Database | undefined;
   // If connect() is called while a connection is already in progress, this holds the in-flight promise to avoid starting multiple connections.
@@ -50,7 +49,6 @@ class Database {
 
   // Connect to the MongoDB database.
   async connect(): Promise<typeof mongoose> {
-
     // If already connected, return the existing connection.
     if (this.isConnected()) {
       return mongoose;
@@ -59,14 +57,13 @@ class Database {
     if (this.connecting) {
       return this.connecting;
     }
-   
+
     // Bind event listeners once on the global Mongoose connection.
     this.bindListeners();
 
     // Fail fast instead of buffering ops forever against a dead connection.
     mongoose.set("bufferTimeoutMS", 10_000);
     mongoose.set("strictQuery", true);
-    
 
     //If the connection is not established, create a new connection and store the promise.
     this.connecting = mongoose
@@ -84,11 +81,10 @@ class Database {
         this.connecting = null;
         throw err;
       });
-     
+
     // Return the connecting state so that callers can await the connection.
     return this.connecting;
   }
-
 
   // Disconnect from the MongoDB database.
 
@@ -99,7 +95,6 @@ class Database {
     log.info("MongoDB disconnected");
   }
 
-
   // Bind event listeners to the Mongoose connection for logging connection events.
 
   private bindListeners(): void {
@@ -107,7 +102,9 @@ class Database {
     this.listenersBound = true;
 
     mongoose.connection.on("error", (err) => {
-      log.error("MongoDB connection error", { message: (err as Error).message });
+      log.error("MongoDB connection error", {
+        message: (err as Error).message,
+      });
     });
     mongoose.connection.on("disconnected", () => {
       log.warn("MongoDB disconnected");

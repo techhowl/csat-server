@@ -8,7 +8,6 @@
 
 type NodeEnv = "development" | "test" | "production";
 
-
 // Helper functions to read and validate environment variables.
 
 function required(name: string): string {
@@ -18,8 +17,6 @@ function required(name: string): string {
   }
   return value;
 }
-
-
 
 function optional(name: string, fallback: string): string {
   const value = process.env[name];
@@ -31,7 +28,9 @@ function int(name: string, fallback: number): number {
   if (raw === undefined || raw.trim() === "") return fallback;
   const parsed = Number.parseInt(raw, 10);
   if (Number.isNaN(parsed)) {
-    throw new Error(`Environment variable ${name} must be an integer, got: ${raw}`);
+    throw new Error(
+      `Environment variable ${name} must be an integer, got: ${raw}`
+    );
   }
   return parsed;
 }
