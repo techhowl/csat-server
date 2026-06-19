@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "noEmit": true,
+    "rootDir": "..",
+    "baseUrl": "..",
+    "types": ["node", "vitest/globals"],
+    "paths": {
+      "@csat/shared": ["packages/shared/src/index.ts"]
+    }
+  },
+  "include": ["**/*.ts"]
+}
