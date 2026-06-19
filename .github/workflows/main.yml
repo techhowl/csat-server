@@ -45,6 +45,40 @@ jobs:
       # Build mode: composite project references can't use --noEmit.
       - run: npx tsc -b
 
+  # Stage 2 — Automated tests. Unit tests run with no external deps; integration
+  # tests run against an ephemeral mongo:7 service container (MONGO_URI points at
+  # it). Coverage is reported + uploaded but does not gate the build yet.
+  test:
+    name: Unit + Integration tests
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ping:1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      MONGO_URI: mongodb://localhost:27017
+      MONGO_DB_NAME: csat_test
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run test:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+
   gitleaks:
     name: Gitleaks secret scan
     runs-on: ubuntu-latest
