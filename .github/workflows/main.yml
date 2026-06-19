@@ -1,0 +1,67 @@
+# .github/workflows/static-checks.yml
+#
+# Stage 1 — Static checks (parallel)
+# Each job below is independent, so GitHub runs them concurrently.
+# Repo is an npm workspaces monorepo (packages/*, services/*) using TypeScript
+# project references (composite builds), so typecheck uses `tsc -b`, not --noEmit.
+
+name: Static checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel an in-progress run if you push again to the same branch/PR.
+concurrency:
+  group: static-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: ESLint + Prettier
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx eslint .
+      - run: npx prettier --check .
+
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Build mode: composite project references can't use --noEmit.
+      - run: npx tsc -b
+
+  gitleaks:
+    name: Gitleaks secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so it can scan all commits
+      - name: Run gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+            detect --source=/repo --redact --verbose
+
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - run: semgrep scan --config=auto --error
