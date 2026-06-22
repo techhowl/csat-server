@@ -8,9 +8,10 @@ import { resolve } from "node:path";
 export default defineConfig({
   resolve: {
     alias: {
-      // Run tests against @csat/shared source, mirroring the dev path alias in
+      // Run tests against package source, mirroring the dev path alias in
       // services/*/tsconfig.dev.json — no need to `tsc -b` the package first.
       "@csat/shared": resolve(__dirname, "packages/shared/src/index.ts"),
+      "@csat/http": resolve(__dirname, "packages/http/src/index.ts"),
     },
   },
   test: {
