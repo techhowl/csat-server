@@ -15,6 +15,23 @@ services/
   scheduler/     @csat/scheduler — cron-style tick loop (stub)
 ```
 
+The `api` service is layered **routes → controllers → services → models**. A
+request lands on a route (path → handler wiring), the controller handles the
+HTTP request/response, the service holds business logic (transport-agnostic),
+and models own persistence (Mongoose). `GET /health` is wired through this
+flow as the reference example; add a feature by following the same shape.
+
+```
+services/api/src/
+  app.ts             composition root — middleware + routes + error handling
+  index.ts           bootstrap — DB connect, listen, graceful shutdown
+  routes/            HTTP paths → controller handlers (index.ts aggregates)
+  controllers/       request/response boundary, no business logic
+  services/          business logic, no HTTP knowledge
+  models/            Mongoose models (one per collection) — empty for now
+  middlewares/       cross-cutting (404, centralised error handler)
+```
+
 All three services import the **singleton** `database` from `@csat/shared`: one
 Mongoose connection (and pool) per process, established once via `database.connect()`
 and reused.

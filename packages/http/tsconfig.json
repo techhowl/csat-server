@@ -4,9 +4,5 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "references": [
-    { "path": "../../packages/shared" },
-    { "path": "../../packages/http" }
-  ],
   "include": ["src/**/*"]
 }

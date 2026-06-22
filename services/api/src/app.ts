@@ -1,17 +1,18 @@
-import express, {
-  type Application,
-  type NextFunction,
-  type Request,
-  type Response,
-} from "express";
+import express, { type Application } from "express";
 import helmet from "helmet";
-import { createLogger } from "@csat/shared";
-import { healthRouter } from "./routes/health";
+import { mountDocs } from "@csat/http";
+import { router } from "./routes";
+import { apiSpec } from "./docs/openapi";
+import { notFound } from "./middlewares/not-found";
+import { errorHandler } from "./middlewares/error-handler";
 
-// Create a logger instance for the API service.
-const log = createLogger("api");
-
-// create app  creates the express app  with security headers, body parsing, routes, and error handling.
+/**
+ * Composition root — assembles middleware → routes → error handling.
+ *
+ * Request flow follows the layering:
+ *   routes/ (HTTP paths) → controllers/ (request/response) →
+ *   services/ (business logic) → models/ (persistence)
+ */
 export function createApp(): Application {
   const app = express();
 
@@ -27,23 +28,16 @@ export function createApp(): Application {
   app.use(express.json({ limit: "100kb" }));
   app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 
-  // Routes
-  app.use("/", healthRouter);
+  // Feature routes (mounted through the root router aggregator).
+  app.use("/", router);
 
-  // 404 — keep it generic, no stack or internals leaked.
-  app.use((_req: Request, res: Response) => {
-    res.status(404).json({ error: "Not Found" });
-  });
+  // API docs — Swagger UI at /docs, raw spec at /openapi.json. Always on.
+  // Must mount before notFound, else /docs falls through to the 404 handler.
+  mountDocs(app, apiSpec);
 
-  // Centralised error handler. Logs full detail server-side, returns an opaque
-  // message to the client so we never leak stack traces or internal state.
-  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    log.error("Unhandled request error", {
-      message: err.message,
-      stack: err.stack,
-    });
-    res.status(500).json({ error: "Internal Server Error" });
-  });
+  // 404 + centralised error handler — must come last.
+  app.use(notFound);
+  app.use(errorHandler);
 
   return app;
 }
