@@ -5,7 +5,8 @@
     "incremental": false,
     "baseUrl": ".",
     "paths": {
-      "@csat/shared": ["../../packages/shared/src/index.ts"]
+      "@csat/shared": ["../../packages/shared/src/index.ts"],
+      "@csat/http": ["../../packages/http/src/index.ts"]
     }
   },
   "ts-node": {

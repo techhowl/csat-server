@@ -1,6 +1,6 @@
 COMPOSE := docker compose
 
-.PHONY: dev up down logs ps build restart clean install lint typecheck login check-token
+.PHONY: dev rebuild up down logs ps build restart clean install lint typecheck login check-token
 
 ## login: mint an INFISICAL_TOKEN from .env.bootstrap creds. Use: eval "$$(make login)"
 ##   (prints the export line so it lands in your shell; relies on .env.bootstrap)
@@ -19,6 +19,12 @@ check-token:
 ## dev: build images (if needed) and start the full stack in the foreground
 dev: check-token
 	$(COMPOSE) up --build
+
+## rebuild: like dev, but also renew the node_modules anon volume.
+##   Use after adding/removing a dependency — plain `dev` reuses the stale
+##   node_modules volume and won't pick up new packages.
+rebuild: check-token
+	$(COMPOSE) up --build -V
 
 ## up: start the stack detached
 up: check-token

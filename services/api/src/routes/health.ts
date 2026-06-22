@@ -1,25 +1,33 @@
-import { Router, type Request, type Response } from "express";
-import { database } from "@csat/shared";
+import { Router } from "express";
+import { getHealth } from "../controllers/health";
 
+/**
+ * Route layer — maps HTTP paths to controller handlers. No logic beyond wiring.
+ */
 export const healthRouter = Router();
 
 /**
- * Liveness + readiness in one cheap endpoint.
- * `status: ok` only when the Mongo singleton reports a live connection.
- * Returns 503 when the DB is down so load balancers / Dokploy health checks
- * can pull the instance out of rotation.
+ * @openapi
+ * /health:
+ *   get:
+ *     summary: Liveness + readiness probe
+ *     description: >
+ *       Returns `ok` (200) only when every hard dependency is reachable;
+ *       otherwise `degraded` (503) so load balancers / Dokploy health checks
+ *       can pull the instance out of rotation.
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Service healthy — all dependencies up.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HealthReport'
+ *       503:
+ *         description: Service degraded — a hard dependency is down.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HealthReport'
  */
-healthRouter.get("/health", (_req: Request, res: Response) => {
-  const dbConnected = database.isConnected();
-  const status = dbConnected ? "ok" : "degraded";
-
-  res.status(dbConnected ? 200 : 503).json({
-    status,
-    service: "api",
-    uptimeSec: Math.round(process.uptime()),
-    dependencies: {
-      mongo: dbConnected ? "up" : "down",
-    },
-    timestamp: new Date().toISOString(),
-  });
-});
+healthRouter.get("/health", getHealth);
