@@ -6,4 +6,9 @@
  * Empty for now: the health endpoint reads no persisted state. The first
  * feature that touches a collection adds its model here.
  */
-export {};
+
+// Export User model and interface
+export { User, IUser } from "./user";
+
+// Export RefreshToken model and interface
+export { RefreshToken, IRefreshToken } from "./refresh-token";

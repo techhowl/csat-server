@@ -58,6 +58,22 @@ export const config = {
   scheduler: {
     tickIntervalMs: int("SCHEDULER_TICK_INTERVAL_MS", 10000),
   },
+
+  jwt: {
+    // Signing secrets are required — no defaults, so a missing secret fails
+    // fast at boot instead of silently signing tokens with a weak key.
+    accessSecret: required("JWT_ACCESS_SECRET"),
+    refreshSecret: required("JWT_REFRESH_SECRET"),
+    // TTLs accept any `jsonwebtoken` expiresIn string (e.g. "15m", "30d").
+    accessTtl: optional("JWT_ACCESS_TTL", "15m"),
+    refreshTtl: optional("JWT_REFRESH_TTL", "30d"),
+  },
+
+  security: {
+    // Password pepper adds an additional layer of security to password hashing
+    // This should be a long, random string that's kept secret
+    passwordPepper: required("PASSWORD_PEPPER"),
+  },
 } as const;
 
 export type AppConfig = typeof config;
