@@ -66,6 +66,10 @@ jobs:
       MONGO_URI: mongodb://localhost:27017
       MONGO_DB_NAME: csat_test
       NODE_ENV: test
+      # Required by config.ts — provide via GitHub Actions secrets (CI-only values, not prod credentials).
+      JWT_ACCESS_SECRET: ${{ secrets.CI_JWT_ACCESS_SECRET }}
+      JWT_REFRESH_SECRET: ${{ secrets.CI_JWT_REFRESH_SECRET }}
+      PASSWORD_PEPPER: ${{ secrets.CI_PASSWORD_PEPPER }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

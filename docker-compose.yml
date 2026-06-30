@@ -19,7 +19,7 @@ services:
     environment:
       - INFISICAL_API_URL=${INFISICAL_API_URL}
       - INFISICAL_TOKEN=${INFISICAL_TOKEN}
-      - INFISICAL_PROJECT_ID=614c0077-6657-4956-bcdb-be85c86131c8
+      - INFISICAL_PROJECT_ID=1132a6a9-384e-46be-89f2-695627f7bf39
       - INFISICAL_ENV=dev
     ports:
       - "4000:4000"
@@ -37,7 +37,7 @@ services:
     environment:
       - INFISICAL_API_URL=${INFISICAL_API_URL}
       - INFISICAL_TOKEN=${INFISICAL_TOKEN}
-      - INFISICAL_PROJECT_ID=614c0077-6657-4956-bcdb-be85c86131c8
+      - INFISICAL_PROJECT_ID=1132a6a9-384e-46be-89f2-695627f7bf39
       - INFISICAL_ENV=dev
     volumes:
       - .:/app
@@ -53,7 +53,7 @@ services:
     environment:
       - INFISICAL_API_URL=${INFISICAL_API_URL}
       - INFISICAL_TOKEN=${INFISICAL_TOKEN}
-      - INFISICAL_PROJECT_ID=614c0077-6657-4956-bcdb-be85c86131c8
+      - INFISICAL_PROJECT_ID=1132a6a9-384e-46be-89f2-695627f7bf39
       - INFISICAL_ENV=dev
     volumes:
       - .:/app
