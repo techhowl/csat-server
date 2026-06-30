@@ -22,7 +22,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:integration": "infisical run --env=dev -- env MONGO_DB_NAME=csat_test vitest run --coverage",
+    "test:integration": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=dev -- env MONGO_DB_NAME=csat_test vitest run --coverage",
     "dev:api": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=dev -- npm run dev -w @csat/api",
     "dev:worker": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=dev -- npm run dev -w @csat/worker",
     "dev:scheduler": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=dev -- npm run dev -w @csat/scheduler"

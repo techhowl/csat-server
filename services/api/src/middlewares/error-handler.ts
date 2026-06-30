@@ -8,7 +8,7 @@ const log = createLogger("api");
 /**
  * Centralised error handler — must be the last `app.use`. Logs full detail
  * server-side, returns appropriate error messages based on error type.
- * 
+ *
  * Handles:
  * - AppError instances: Returns the defined status code and message
  * - ZodError instances: Converts to 400 ValidationError
@@ -31,43 +31,50 @@ export function errorHandler(
   // Handle Zod validation errors
   if (err instanceof ZodError) {
     // Format Zod errors into a readable message
-    const errorMessages = err.issues.map((issue) => {
-      const path = issue.path.join(".");
-      return `${path}: ${issue.message}`;
-    }).join(", ");
-    
+    const errorMessages = err.issues
+      .map((issue) => {
+        const path = issue.path.join(".");
+        return `${path}: ${issue.message}`;
+      })
+      .join(", ");
+
     // Convert to ValidationError
-    const validationError = new ValidationError(`Validation failed - ${errorMessages}`);
-    
+    const validationError = new ValidationError(
+      `Validation failed - ${errorMessages}`
+    );
+
     // Send validation error response
     res.status(validationError.statusCode).json({
       error: validationError.message,
       // Include detailed errors in development
-      ...(process.env.NODE_ENV === 'development' && { 
+      ...(process.env.NODE_ENV === "development" && {
         details: err.issues,
-        stack: err.stack 
-      })
+        stack: err.stack,
+      }),
     });
     return;
   }
 
   // Check if this is one of our custom AppError instances
   if (err instanceof AppError) {
-    // For operational errors, send the actual message and status code
-    res.status(err.statusCode).json({ 
-      error: err.message,
+    // Only expose the real message for client (4xx) errors. 5xx AppErrors are
+    // server faults whose messages can leak internal details, so send a generic
+    // message instead.
+    const isClientError = err.statusCode < 500;
+    res.status(err.statusCode).json({
+      error: isClientError ? err.message : "Internal Server Error",
       // In development, you might want to include more details
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
     });
   } else {
     // For unexpected errors, send generic message to avoid leaking internals
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Internal Server Error",
       // In development, include the actual error for debugging
-      ...(process.env.NODE_ENV === 'development' && { 
+      ...(process.env.NODE_ENV === "development" && {
         message: err.message,
-        stack: err.stack 
-      })
+        stack: err.stack,
+      }),
     });
   }
 }

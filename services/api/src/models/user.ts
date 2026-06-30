@@ -60,7 +60,7 @@ const UserSchema = new Schema<IUser>(
       required: [true, "Name is required"],
       trim: true,
     },
-    
+
     email: {
       type: String,
       required: [true, "Email is required"],
@@ -72,13 +72,13 @@ const UserSchema = new Schema<IUser>(
         "Please provide a valid email address",
       ],
     },
-    
+
     mobileNumber: {
       type: String,
       trim: true,
       sparse: true, // Allows multiple null values while maintaining uniqueness for non-null values
     },
-    
+
     profileImage: {
       type: String,
       default: null,
@@ -90,7 +90,7 @@ const UserSchema = new Schema<IUser>(
       default: null,
       select: false, // Exclude from queries by default
     },
-    
+
     provider: {
       type: String,
       enum: ["local", "google"],
@@ -115,7 +115,7 @@ const UserSchema = new Schema<IUser>(
       type: Boolean,
       default: true,
     },
-    
+
     lastLoginAt: {
       type: Date,
       default: null,
@@ -124,12 +124,13 @@ const UserSchema = new Schema<IUser>(
   {
     // Enable automatic timestamps
     timestamps: true,
-    
+
     // Configure toJSON transformation
     toJSON: {
       transform: function (_doc, ret) {
-        // Create a new object without sensitive fields
-        const { password, __v, ...cleanedRet } = ret;
+        // Strip sensitive fields; bind to underscore-prefixed names so the
+        // unused-vars rule is satisfied while still excluding them from output.
+        const { password: _password, __v: _version, ...cleanedRet } = ret;
         return cleanedRet;
       },
     },
@@ -138,10 +139,13 @@ const UserSchema = new Schema<IUser>(
 
 // Indexes for performance
 // Compound index for _id is automatically created by MongoDB
-UserSchema.index({ email: 1 }); // For unique email lookups
+// Note: email is already indexed via `unique: true` on the field definition.
 UserSchema.index({ name: 1 }); // For name-based searches
 UserSchema.index({ provider: 1, email: 1 }); // For provider-specific lookups
-UserSchema.index({ "accessScopes.resourceType": 1, "accessScopes.resourceId": 1 }); // For access scope queries
+UserSchema.index({
+  "accessScopes.resourceType": 1,
+  "accessScopes.resourceId": 1,
+}); // For access scope queries
 UserSchema.index({ isActive: 1 }); // For filtering active users
 
 // Export the User model

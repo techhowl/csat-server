@@ -1,23 +1,46 @@
-import { Schema, model, Document, Types } from "mongoose";
+import { Schema, model, Document, Model, Types } from "mongoose";
 
 // Interface for the RefreshToken document
 export interface IRefreshToken extends Document {
   // Reference to the User who owns this token
   userId: Types.ObjectId;
-  
+
   // SHA-256 hash of the actual refresh token for secure storage
   tokenHash: string;
-  
+
   // Expiration timestamp - MongoDB will auto-delete after this time
   expiresAt: Date;
-  
+
   // Timestamps (automatically managed by Mongoose)
   createdAt: Date;
   updatedAt: Date;
 }
 
+// Instance methods available on each RefreshToken document
+export interface IRefreshTokenMethods {
+  // Returns true if the token's expiry is in the past
+  isExpired(): boolean;
+}
+
+// Model type: includes the instance methods plus the custom statics so callers
+// get type-safe RefreshToken.cleanupExpiredTokens() and document.isExpired().
+export interface IRefreshTokenModel extends Model<
+  IRefreshToken,
+  Record<string, never>,
+  IRefreshTokenMethods
+> {
+  // Deletes expired tokens, optionally scoped to a single user
+  cleanupExpiredTokens(
+    userId?: Types.ObjectId
+  ): Promise<{ acknowledged: boolean; deletedCount: number }>;
+}
+
 // Define the RefreshToken schema
-const RefreshTokenSchema = new Schema<IRefreshToken>(
+const RefreshTokenSchema = new Schema<
+  IRefreshToken,
+  IRefreshTokenModel,
+  IRefreshTokenMethods
+>(
   {
     // User reference - who owns this refresh token
     userId: {
@@ -32,21 +55,20 @@ const RefreshTokenSchema = new Schema<IRefreshToken>(
     tokenHash: {
       type: String,
       required: [true, "Token hash is required"],
-      unique: true, // Ensure no duplicate tokens
-      index: true, // Index for fast token lookups
+      unique: true, // Ensure no duplicate tokens (also creates the index)
     },
 
     // Expiration date/time for this token
     expiresAt: {
       type: Date,
       required: [true, "Expiration date is required"],
-      index: true, // Index for TTL functionality
+      // Indexed via the explicit TTL index declared below (expiresAt_ttl)
     },
   },
   {
     // Enable automatic timestamps (createdAt, updatedAt)
     timestamps: true,
-    
+
     // Configure toJSON to clean up output
     toJSON: {
       transform: function (_doc, ret) {
@@ -79,18 +101,23 @@ RefreshTokenSchema.index(
 );
 
 // Static method to clean up expired tokens for a user (optional backup to TTL)
-RefreshTokenSchema.statics.cleanupExpiredTokens = async function(userId?: Types.ObjectId) {
-  const query = { 
+RefreshTokenSchema.statics.cleanupExpiredTokens = async function (
+  userId?: Types.ObjectId
+) {
+  const query = {
     expiresAt: { $lt: new Date() },
-    ...(userId && { userId })
+    ...(userId && { userId }),
   };
   return this.deleteMany(query);
 };
 
 // Instance method to check if token is expired
-RefreshTokenSchema.methods.isExpired = function(): boolean {
+RefreshTokenSchema.methods.isExpired = function (): boolean {
   return this.expiresAt < new Date();
 };
 
 // Export the RefreshToken model
-export const RefreshToken = model<IRefreshToken>("RefreshToken", RefreshTokenSchema);
+export const RefreshToken = model<IRefreshToken, IRefreshTokenModel>(
+  "RefreshToken",
+  RefreshTokenSchema
+);

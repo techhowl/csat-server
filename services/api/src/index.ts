@@ -11,7 +11,7 @@ async function bootstrap(): Promise<void> {
   await database.connect();
   // Start the Express server.
   const app = createApp();
-  console.log("Bootstrapping CSAT API service...");
+  log.info("Bootstrapping CSAT API service...");
   const server: Server = app.listen(config.api.port, () => {
     log.info(`API listening`, { port: config.api.port, env: config.nodeEnv });
   });

@@ -2,7 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Request, Response, NextFunction } from "express";
 import { z, ZodError } from "zod";
 import { errorHandler } from "../../../../services/api/src/middlewares/error-handler";
-import { AppError, ValidationError, UnauthorizedError, NotFoundError, ConflictError } from "../../../../services/api/src/utils/errors";
+import {
+  AppError,
+  ValidationError,
+  UnauthorizedError,
+  NotFoundError,
+  ConflictError,
+} from "../../../../services/api/src/utils/errors";
 
 // Mock the logger
 vi.mock("@csat/shared", () => ({
@@ -12,7 +18,7 @@ vi.mock("@csat/shared", () => ({
 }));
 
 // Mock NODE_ENV
-vi.stubEnv('NODE_ENV', 'production');
+vi.stubEnv("NODE_ENV", "production");
 
 describe("errorHandler middleware", () => {
   let mockRequest: Partial<Request>;
@@ -38,7 +44,8 @@ describe("errorHandler middleware", () => {
   it("should log the error and return 500 status with generic error message", () => {
     // Arrange
     const error = new Error("Test error message");
-    error.stack = "Error: Test error message\n    at Object.<anonymous> (/test/file.js:1:1)";
+    error.stack =
+      "Error: Test error message\n    at Object.<anonymous> (/test/file.js:1:1)";
 
     // Act
     errorHandler(
@@ -92,7 +99,8 @@ describe("errorHandler middleware", () => {
     const customError = {
       name: "CustomError",
       message: "Custom error message",
-      stack: "CustomError: Custom error message\n    at Object.<anonymous> (/test/file.js:1:1)",
+      stack:
+        "CustomError: Custom error message\n    at Object.<anonymous> (/test/file.js:1:1)",
     } as Error;
 
     // Act
@@ -110,8 +118,10 @@ describe("errorHandler middleware", () => {
 
   it("should always return the same generic error message to prevent information leakage", () => {
     // Arrange
-    const sensitiveError = new Error("Database connection failed at host:192.168.1.1");
-    
+    const sensitiveError = new Error(
+      "Database connection failed at host:192.168.1.1"
+    );
+
     // Act
     errorHandler(
       sensitiveError,
@@ -122,9 +132,11 @@ describe("errorHandler middleware", () => {
 
     // Assert
     expect(jsonMock).toHaveBeenCalledWith({ error: "Internal Server Error" });
-    expect(jsonMock).not.toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.stringContaining("192.168.1.1")
-    }));
+    expect(jsonMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.stringContaining("192.168.1.1"),
+      })
+    );
   });
 
   it("should handle errors with missing properties", () => {
@@ -224,18 +236,19 @@ describe("errorHandler middleware", () => {
       mockNext
     );
 
-    // Assert
+    // Assert: status is preserved, but 5xx AppError messages are redacted to a
+    // generic string so internal details don't leak to clients.
     expect(statusMock).toHaveBeenCalledWith(503);
-    expect(jsonMock).toHaveBeenCalledWith({ error: "Custom error" });
+    expect(jsonMock).toHaveBeenCalledWith({ error: "Internal Server Error" });
   });
 
   it("should handle ZodError and convert to 400 ValidationError", () => {
     // Arrange
     const schema = z.object({
       name: z.string().min(2),
-      age: z.number().positive()
+      age: z.number().positive(),
     });
-    
+
     let zodError: ZodError;
     try {
       schema.parse({ name: "a", age: -5 });
@@ -255,7 +268,7 @@ describe("errorHandler middleware", () => {
     expect(statusMock).toHaveBeenCalledWith(400);
     expect(jsonMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        error: expect.stringContaining("Validation failed")
+        error: expect.stringContaining("Validation failed"),
       })
     );
   });
@@ -263,11 +276,11 @@ describe("errorHandler middleware", () => {
   it("should handle ZodError with multiple validation issues", () => {
     // Arrange
     const schema = z.object({
-      email: z.string().email(),
+      email: z.email(),
       password: z.string().min(8),
-      age: z.number().min(18)
+      age: z.number().min(18),
     });
-    
+
     let zodError: ZodError;
     try {
       schema.parse({ email: "invalid", password: "short", age: 10 });
@@ -287,7 +300,7 @@ describe("errorHandler middleware", () => {
     expect(statusMock).toHaveBeenCalledWith(400);
     expect(jsonMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        error: expect.stringMatching(/email.*password.*age/i)
+        error: expect.stringMatching(/email.*password.*age/i),
       })
     );
   });

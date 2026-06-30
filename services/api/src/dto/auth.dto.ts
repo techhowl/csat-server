@@ -16,9 +16,10 @@ import { z } from "zod";
  *   escalate privileges. Those fields are owned by the server, never the wire.
  * - Inputs are normalised (trim + lowercase email) before they ever reach the
  *   service layer, so persistence sees canonical values.
- * - Password is capped at 72 characters because bcrypt silently truncates
- *   input beyond 72 bytes (see utils/password.ts). Allowing longer values would
- *   create a false sense of entropy.
+ * - Password is capped at 72 bytes because bcrypt silently truncates input
+ *   beyond 72 bytes (see utils/password.ts). The cap is enforced on the UTF-8
+ *   byte length, not the character count, so multibyte passwords can't slip
+ *   past. Allowing longer values would create a false sense of entropy.
  */
 
 // Maximum bcrypt input length in bytes. bcrypt silently ignores anything past
@@ -48,11 +49,14 @@ const emailSchema = z
 const strongPasswordSchema = z
   .string({ error: "Password is required" })
   .min(8, { error: "Password must be at least 8 characters long" })
-  .max(BCRYPT_MAX_PASSWORD_LENGTH, {
-    error: `Password must be at most ${BCRYPT_MAX_PASSWORD_LENGTH} characters long`,
-  })
   .regex(/[A-Za-z]/, { error: "Password must contain at least one letter" })
-  .regex(/[0-9]/, { error: "Password must contain at least one number" });
+  .regex(/[0-9]/, { error: "Password must contain at least one number" })
+  .refine(
+    (val) => Buffer.byteLength(val, "utf8") <= BCRYPT_MAX_PASSWORD_LENGTH,
+    {
+      error: `Password must be at most ${BCRYPT_MAX_PASSWORD_LENGTH} bytes long`,
+    }
+  );
 
 /**
  * Optional E.164-style mobile number.

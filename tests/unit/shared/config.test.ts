@@ -26,6 +26,7 @@ describe("shared config", () => {
     "JWT_REFRESH_SECRET",
     "JWT_ACCESS_TTL",
     "JWT_REFRESH_TTL",
+    "PASSWORD_PEPPER",
   ];
 
   beforeEach(() => {
@@ -43,6 +44,7 @@ describe("shared config", () => {
     MONGO_URI: "mongodb://localhost:27017",
     JWT_ACCESS_SECRET: "test-access-secret",
     JWT_REFRESH_SECRET: "test-refresh-secret",
+    PASSWORD_PEPPER: "test-pepper-for-unit-tests",
   };
 
   it("throws when required MONGO_URI is missing", async () => {
@@ -55,9 +57,18 @@ describe("shared config", () => {
   it("throws when required JWT_ACCESS_SECRET is missing", async () => {
     process.env.MONGO_URI = REQUIRED_ENV.MONGO_URI;
     process.env.JWT_REFRESH_SECRET = REQUIRED_ENV.JWT_REFRESH_SECRET;
+    process.env.PASSWORD_PEPPER = REQUIRED_ENV.PASSWORD_PEPPER;
     delete process.env.JWT_ACCESS_SECRET;
     await expect(loadConfig()).rejects.toThrow(
       /Missing required environment variable: JWT_ACCESS_SECRET/
+    );
+  });
+
+  it("throws when required PASSWORD_PEPPER is missing", async () => {
+    Object.assign(process.env, REQUIRED_ENV);
+    delete process.env.PASSWORD_PEPPER;
+    await expect(loadConfig()).rejects.toThrow(
+      /Missing required environment variable: PASSWORD_PEPPER/
     );
   });
 

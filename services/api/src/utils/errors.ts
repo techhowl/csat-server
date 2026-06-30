@@ -6,7 +6,7 @@
 export class AppError extends Error {
   // HTTP status code to be sent in the response
   public readonly statusCode: number;
-  
+
   // Flag to indicate if this error is operational (expected) vs programming error
   public readonly isOperational: boolean;
 
@@ -16,10 +16,10 @@ export class AppError extends Error {
 
     // Set the name property to the actual class name for better debugging
     this.name = this.constructor.name;
-    
+
     // Store the HTTP status code
     this.statusCode = statusCode;
-    
+
     // Mark whether this is an operational error
     this.isOperational = isOperational;
 

@@ -1,6 +1,6 @@
 COMPOSE := docker compose
 
-.PHONY: dev rebuild up down logs ps build restart clean install lint typecheck login check-token
+.PHONY: dev rebuild up down logs ps build restart clean install lint typecheck login check-token test test-integration
 
 ## login: mint an INFISICAL_TOKEN from .env.bootstrap creds. Use: eval "$$(make login)"
 ##   (prints the export line so it lands in your shell; relies on .env.bootstrap)
@@ -61,3 +61,11 @@ lint:
 ## typecheck: full TypeScript build (no emit issues -> clean)
 typecheck:
 	npm run build
+
+## test: run unit tests (no Infisical/secrets needed)
+test:
+	npm test
+
+## test-integration: run full suite + coverage with Infisical secrets injected
+test-integration: check-token
+	npm run test:integration
