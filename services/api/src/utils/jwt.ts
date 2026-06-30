@@ -4,15 +4,12 @@ import { config } from "@csat/shared";
 import { AppError, UnauthorizedError, ValidationError } from "./errors";
 
 /**
- * Allowlisted JWT payload. Only the claims this service issues and reads are
- * part of the contract — anything else on a decoded token is ignored. `userId`
- * is the identifier set at sign time; `sub`/`id` are accepted as fallbacks when
- * reading (see middlewares/authenticate.ts).
+ * Allowlisted JWT payload. `userId` is the single identity claim this service
+ * issues and reads — it is required, and `verify*Token` enforces that it is a
+ * string before returning, so callers never have to fall back to other claims.
  */
 export interface TokenPayload {
-  userId?: string;
-  sub?: string;
-  id?: string;
+  userId: string;
 }
 
 /**
@@ -107,8 +104,14 @@ export function verifyAccessToken(token: string): TokenPayload {
       throw new ValidationError("Invalid token payload format");
     }
 
-    // Narrow the decoded claims to our allowlisted payload shape
-    return decoded as TokenPayload;
+    // Validate the identity claim at the boundary rather than casting blindly:
+    // a token without a string userId is not a valid identity for this service.
+    if (typeof decoded.userId !== "string") {
+      throw new UnauthorizedError("Invalid token payload: missing user ID");
+    }
+
+    // Narrow to our allowlisted payload shape
+    return { userId: decoded.userId };
   } catch (error) {
     // Check if it's a JWT-specific error
     if (error instanceof Error) {
@@ -149,8 +152,13 @@ export function verifyRefreshToken(token: string): TokenPayload {
       throw new ValidationError("Invalid token payload format");
     }
 
-    // Narrow the decoded claims to our allowlisted payload shape
-    return decoded as TokenPayload;
+    // Validate the identity claim at the boundary rather than casting blindly.
+    if (typeof decoded.userId !== "string") {
+      throw new UnauthorizedError("Invalid token payload: missing user ID");
+    }
+
+    // Narrow to our allowlisted payload shape
+    return { userId: decoded.userId };
   } catch (error) {
     // Check if it's a JWT-specific error
     if (error instanceof Error) {

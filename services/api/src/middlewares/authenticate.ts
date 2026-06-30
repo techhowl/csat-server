@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { UnauthorizedError } from "../utils/errors";
+import { AppError, UnauthorizedError } from "../utils/errors";
 import { verifyAccessToken } from "../utils/jwt";
 import { User } from "../models";
 
@@ -51,8 +51,9 @@ export async function authenticate(
     // Verify the token and get the payload
     const payload = verifyAccessToken(token);
 
-    // Extract userId from the payload
-    const userId = payload.userId || payload.sub || payload.id;
+    // Extract userId from the payload. verifyAccessToken guarantees a string
+    // userId at the auth boundary, so no sub/id fallback is needed here.
+    const userId = payload.userId;
 
     if (!userId) {
       throw new UnauthorizedError("Invalid token payload: missing user ID");
@@ -118,9 +119,10 @@ export function requireRole(roles: string[]) {
       throw new UnauthorizedError("Authentication required");
     }
 
-    // Check if user has one of the required roles
+    // Check if user has one of the required roles. The user IS authenticated
+    // but lacks the role — that's 403 Forbidden, not 401 Unauthorized.
     if (!roles.includes(req.user.role)) {
-      throw new UnauthorizedError("Insufficient permissions");
+      throw new AppError("Insufficient permissions", 403);
     }
 
     // User has required role, continue

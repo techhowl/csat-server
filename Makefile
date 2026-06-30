@@ -68,4 +68,5 @@ test:
 
 ## test-integration: run full suite + coverage with Infisical secrets injected
 test-integration: check-token
+	@test -n "$$INFISICAL_PROJECT_ID" || { echo "INFISICAL_PROJECT_ID unset — run: eval \"\$$(make login)\"" >&2; exit 1; }
 	npm run test:integration

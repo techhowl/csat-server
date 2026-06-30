@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 import type { Request, Response, NextFunction } from "express";
 import { z, ZodError } from "zod";
 import { errorHandler } from "../../../../services/api/src/middlewares/error-handler";
@@ -17,8 +17,10 @@ vi.mock("@csat/shared", () => ({
   }),
 }));
 
-// Mock NODE_ENV
+// Mock NODE_ENV for the whole suite, then restore so it can't leak into other
+// test files sharing this worker.
 vi.stubEnv("NODE_ENV", "production");
+afterAll(() => vi.unstubAllEnvs());
 
 describe("errorHandler middleware", () => {
   let mockRequest: Partial<Request>;
@@ -240,6 +242,30 @@ describe("errorHandler middleware", () => {
     // generic string so internal details don't leak to clients.
     expect(statusMock).toHaveBeenCalledWith(503);
     expect(jsonMock).toHaveBeenCalledWith({ error: "Internal Server Error" });
+  });
+
+  it("should redact a non-operational 4xx AppError message", () => {
+    // Arrange: 4xx but flagged as a programming error (isOperational = false).
+    const error = new AppError("leaky internal detail", 400, false);
+
+    // Act
+    errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
+
+    // Assert: status preserved, message redacted to generic string.
+    expect(statusMock).toHaveBeenCalledWith(400);
+    expect(jsonMock).toHaveBeenCalledWith({ error: "Internal Server Error" });
+  });
+
+  it("should expose an operational 4xx AppError message", () => {
+    // Arrange: 4xx, operational (default) — message is client-safe.
+    const error = new AppError("bad request detail", 422);
+
+    // Act
+    errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
+
+    // Assert
+    expect(statusMock).toHaveBeenCalledWith(422);
+    expect(jsonMock).toHaveBeenCalledWith({ error: "bad request detail" });
   });
 
   it("should handle ZodError and convert to 400 ValidationError", () => {

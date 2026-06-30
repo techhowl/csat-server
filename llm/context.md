@@ -23,8 +23,9 @@
 **What changed:**
 
 - Old project/workspace ID `614c0077-6657-4956-bcdb-be85c86131c8` was returning 404 (project deleted or recreated in Infisical).
-- Updated `workspaceId` in `.infisical.json` → `e85f3cbf-0186-4bc6-be1b-1a5696288da3`
-- Updated `INFISICAL_PROJECT_ID` in all three services in `docker-compose.yml` → `1132a6a9-384e-46be-89f2-695627f7bf39`
+- `e85f3cbf-0186-4bc6-be1b-1a5696288da3` is the **org** ID, not a project ID — using it returned a "not found during bot lookup" 404. The real project ID is `1132a6a9-384e-46be-89f2-695627f7bf39`.
+- Updated `workspaceId` in `.infisical.json` → `1132a6a9-384e-46be-89f2-695627f7bf39`
+- Updated `INFISICAL_PROJECT_ID` in all three services in `docker-compose.yml` and in `services/api/Dockerfile` → `1132a6a9-384e-46be-89f2-695627f7bf39`
 
 ---
 

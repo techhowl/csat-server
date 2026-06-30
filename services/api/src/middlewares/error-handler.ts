@@ -57,12 +57,13 @@ export function errorHandler(
 
   // Check if this is one of our custom AppError instances
   if (err instanceof AppError) {
-    // Only expose the real message for client (4xx) errors. 5xx AppErrors are
-    // server faults whose messages can leak internal details, so send a generic
-    // message instead.
+    // Only expose the real message for client (4xx) errors that are also
+    // operational (expected). 5xx AppErrors are server faults, and a
+    // non-operational 4xx is a programming error — both can leak internal
+    // details, so send a generic message instead.
     const isClientError = err.statusCode < 500;
     res.status(err.statusCode).json({
-      error: isClientError ? err.message : "Internal Server Error",
+      error: isClientError && err.isOperational ? err.message : "Internal Server Error",
       // In development, you might want to include more details
       ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
     });

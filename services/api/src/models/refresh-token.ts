@@ -47,7 +47,8 @@ const RefreshTokenSchema = new Schema<
       type: Schema.Types.ObjectId,
       ref: "User",
       required: [true, "User ID is required"],
-      index: true, // Index for fast lookups by user
+      // No standalone index here: the compound { userId, expiresAt } index below
+      // already covers userId-only lookups (userId is its prefix).
     },
 
     // SHA-256 hash of the actual refresh token

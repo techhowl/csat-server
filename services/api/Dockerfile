@@ -18,7 +18,7 @@ RUN npm run build -w @csat/shared && npm run build -w @csat/http \
 FROM node:20-alpine AS runner
 ENV NODE_ENV=production
 ENV INFISICAL_ENV=prod
-ENV INFISICAL_PROJECT_ID=614c0077-6657-4956-bcdb-be85c86131c8
+ENV INFISICAL_PROJECT_ID=1132a6a9-384e-46be-89f2-695627f7bf39
 WORKDIR /app
 # Infisical CLI — installed as root before dropping privileges. `infisical run`
 # fetches secrets at boot using INFISICAL_TOKEN + INFISICAL_API_URL (passed at runtime).

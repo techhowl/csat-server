@@ -107,7 +107,7 @@ describe("authenticate middleware", () => {
 
   it("attaches the user and calls next() on success", async () => {
     const user = { _id: "u1", isActive: true, role: "user" };
-    verifyAccessToken.mockReturnValue({ sub: "u1" }); // sub fallback
+    verifyAccessToken.mockReturnValue({ userId: "u1" });
     exec.mockResolvedValue(user);
     const req = mkReq({ authorization: "Bearer good" }) as Request;
     await authenticate(req, {} as Response, next);

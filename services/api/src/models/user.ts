@@ -76,7 +76,6 @@ const UserSchema = new Schema<IUser>(
     mobileNumber: {
       type: String,
       trim: true,
-      sparse: true, // Allows multiple null values while maintaining uniqueness for non-null values
     },
 
     profileImage: {
