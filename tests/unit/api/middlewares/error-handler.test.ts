@@ -249,7 +249,12 @@ describe("errorHandler middleware", () => {
     const error = new AppError("leaky internal detail", 400, false);
 
     // Act
-    errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
+    errorHandler(
+      error,
+      mockRequest as Request,
+      mockResponse as Response,
+      mockNext
+    );
 
     // Assert: status preserved, message redacted to generic string.
     expect(statusMock).toHaveBeenCalledWith(400);
@@ -261,7 +266,12 @@ describe("errorHandler middleware", () => {
     const error = new AppError("bad request detail", 422);
 
     // Act
-    errorHandler(error, mockRequest as Request, mockResponse as Response, mockNext);
+    errorHandler(
+      error,
+      mockRequest as Request,
+      mockResponse as Response,
+      mockNext
+    );
 
     // Assert
     expect(statusMock).toHaveBeenCalledWith(422);

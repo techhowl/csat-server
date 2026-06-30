@@ -63,7 +63,10 @@ export function errorHandler(
     // details, so send a generic message instead.
     const isClientError = err.statusCode < 500;
     res.status(err.statusCode).json({
-      error: isClientError && err.isOperational ? err.message : "Internal Server Error",
+      error:
+        isClientError && err.isOperational
+          ? err.message
+          : "Internal Server Error",
       // In development, you might want to include more details
       ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
     });
