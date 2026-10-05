@@ -11,15 +11,21 @@ services:
   # mongo-data volume (make down-v drops it).
   mongo:
     image: mongo:7
+    # --quiet drops the per-connection accept/end log lines.
+    command: ["--quiet"]
     ports:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 })"]
-      interval: 5s
+      # Each probe opens several connections, and Mongo logs every one. Probe
+      # every 2s only while starting (all depends_on needs), then hourly.
+      start_period: 60s
+      start_interval: 2s
+      interval: 1h
       timeout: 5s
-      retries: 10
+      retries: 3
     networks:
       - csat
 
