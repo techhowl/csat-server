@@ -24,7 +24,7 @@ app reads is documented in `.env.example`.
 First time:
 
 ```bash
-cp .env.example .env    # then fill MONGO_URI and generate JWT_*/PASSWORD_PEPPER
+cp .env.example .env    # then generate JWT_*/PASSWORD_PEPPER (MONGO_URI defaults to the compose Mongo)
                         # (openssl rand -base64 48)
 ```
 
