@@ -1,11 +1,14 @@
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import request from "supertest";
+import type { Application } from "express";
 import { describeIntegration } from "../../setup";
 
 // Imports are dynamic and inside the suite so this file does NOT evaluate the
 // real @csat/shared config (which requires MONGO_URI) when integration tests
 // are skipped locally.
 describeIntegration("API health against real Mongo", () => {
+  let app: Application;
+
   beforeAll(async () => {
     const { config, database } = await import("@csat/shared");
     // Hard guard: afterEach wipes collections, so refuse to run against any DB
@@ -18,6 +21,11 @@ describeIntegration("API health against real Mongo", () => {
       );
     }
     await database.connect();
+    // Import (and build) the app here, under the 30s hookTimeout: the first
+    // import of the whole API is slow under coverage instrumentation and
+    // doesn't fit the 5s per-test timeout.
+    const { createApp } = await import("../../../services/api/src/app");
+    app = createApp();
   });
 
   afterEach(async () => {
@@ -32,8 +40,7 @@ describeIntegration("API health against real Mongo", () => {
   });
 
   it("reports mongo up with a live connection", async () => {
-    const { createApp } = await import("../../../services/api/src/app");
-    const res = await request(createApp()).get("/health");
+    const res = await request(app).get("/health");
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("ok");
     expect(res.body.dependencies.mongo).toBe("up");
