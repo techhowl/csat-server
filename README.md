@@ -70,7 +70,7 @@ API: http://localhost:4000/health
 ```bash
 make down      # stop + remove containers (keeps mongo data volume)
 make down-v    # also drop the mongo volume
-make logs      # tail all service logs
+make logs      # tail app logs (make logs-mongo for Mongo)
 make ps        # status
 ```
 

@@ -54,7 +54,7 @@ services.
 | `make dev`     | Build + start all services, foreground, live reload                                      |
 | `make up`      | Same, detached                                                                           |
 | `make rebuild` | Like `dev` but renews the `node_modules` volume — run after adding/removing a dependency |
-| `make logs`    | Tail all service logs                                                                    |
+| `make logs`    | Tail app logs (api, worker, scheduler); `make logs-mongo` for Mongo                      |
 | `make ps`      | Service status                                                                           |
 | `make down`    | Stop + remove containers (keeps the mongo data volume)                                   |
 | `make down-v`  | Also drop the mongo data volume                                                          |
