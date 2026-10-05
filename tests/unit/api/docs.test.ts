@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import request from "supertest";
+import type { Application } from "express";
 
 // Same stub as health.test.ts: importing the API app must not evaluate the real
 // @csat/shared config (needs MONGO_URI) or open a Mongo connection. The OpenAPI
@@ -14,6 +15,16 @@ vi.mock("@csat/shared", () => ({
   database: {
     isConnected: () => true,
   },
+  // Read at import time by the auth routes (jwt/password utils).
+  config: {
+    jwt: {
+      accessSecret: "test-access-secret",
+      refreshSecret: "test-refresh-secret",
+      accessTtl: "15m",
+      refreshTtl: "30d",
+    },
+    security: { passwordPepper: "test-pepper" },
+  },
 }));
 
 import { z } from "zod";
@@ -23,6 +34,32 @@ import {
   refreshSchema,
   signupSchema,
 } from "../../../services/api/src/dto/auth.dto";
+
+// Minimal view of Express 4's internal router stack — enough to enumerate
+// `METHOD path` for every route, recursing into mounted routers. All routers
+// are mounted at "/" with full paths, so no mount-prefix handling is needed.
+interface Layer {
+  route?: { path: string; methods: Record<string, boolean> };
+  name?: string;
+  handle?: { stack?: Layer[] };
+}
+function listRoutes(app: Application): string[] {
+  const walk = (stack: Layer[]): string[] =>
+    stack.flatMap((layer) => {
+      if (layer.route) {
+        return Object.keys(layer.route.methods).map(
+          (m) => `${m} ${layer.route!.path}`
+        );
+      }
+      if (layer.name === "router" && layer.handle?.stack) {
+        return walk(layer.handle.stack);
+      }
+      return [];
+    });
+  return walk(
+    (app as unknown as { _router: { stack: Layer[] } })._router.stack
+  );
+}
 
 describe("API docs", () => {
   it("serves the OpenAPI spec at /openapi.json with the /health path", async () => {
@@ -56,25 +93,56 @@ describe("API docs", () => {
     expect(res.text).toContain("swagger-ui");
   });
 
-  it("documents exactly the routes the app serves, with matching statuses", async () => {
+  it("documents exactly the routes Express has registered", async () => {
     const app = createApp();
     const spec = (await request(app).get("/openapi.json")).body;
 
-    // A new route without an @openapi block (or a doc for a route that doesn't
-    // exist) fails here — update this list together with the spec.
-    expect(Object.keys(spec.paths).sort()).toEqual([
-      "/docs",
-      "/health",
-      "/openapi.json",
-    ]);
+    const documented = Object.entries(spec.paths as Record<string, object>)
+      .flatMap(([path, ops]) => Object.keys(ops).map((m) => `${m} ${path}`))
+      .sort();
 
-    // Each live response status must be one the spec declares for that path.
-    for (const path of Object.keys(spec.paths)) {
+    // Swagger UI is mounted with app.use (not a route layer), so add it by hand.
+    const registered = [...listRoutes(app), "get /docs"].sort();
+
+    // A route without an @openapi block, or a doc for a route that doesn't
+    // exist, fails here.
+    expect(documented).toEqual(registered);
+    expect(documented).toEqual([
+      "get /auth/me",
+      "get /docs",
+      "get /health",
+      "get /openapi.json",
+      "post /auth/login",
+      "post /auth/logout",
+      "post /auth/logout-all",
+      "post /auth/refresh",
+      "post /auth/signup",
+    ]);
+  });
+
+  it("returns only documented statuses from the routes that need no database", async () => {
+    const app = createApp();
+    const spec = (await request(app).get("/openapi.json")).body;
+    for (const path of ["/health", "/openapi.json", "/docs"]) {
       const res = await request(app).get(path);
       expect(Object.keys(spec.paths[path].get.responses)).toContain(
         String(res.status)
       );
     }
+  });
+
+  it("marks exactly the authenticate-protected operations with bearerAuth", async () => {
+    const spec = (await request(createApp()).get("/openapi.json")).body;
+    const secured = Object.entries(
+      spec.paths as Record<string, Record<string, { security?: unknown }>>
+    )
+      .flatMap(([path, ops]) =>
+        Object.entries(ops)
+          .filter(([, op]) => op.security)
+          .map(([m]) => `${m} ${path}`)
+      )
+      .sort();
+    expect(secured).toEqual(["get /auth/me", "post /auth/logout-all"]);
   });
 
   it("resolves every $ref in the spec", async () => {

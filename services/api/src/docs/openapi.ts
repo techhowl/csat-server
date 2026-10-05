@@ -26,6 +26,12 @@ HTTP API for the CSAT platform.
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | \`GET\` | \`/health\` | Public | Liveness + readiness probe |
+| \`POST\` | \`/auth/signup\` | Public | Create a local account and sign in |
+| \`POST\` | \`/auth/login\` | Public | Exchange email + password for tokens |
+| \`POST\` | \`/auth/refresh\` | Public (refresh token in body) | Rotate the token pair |
+| \`POST\` | \`/auth/logout\` | Public (refresh token in body) | End the current session |
+| \`POST\` | \`/auth/logout-all\` | **Bearer** | End every session of the user |
+| \`GET\` | \`/auth/me\` | **Bearer** | Get the authenticated user |
 | \`GET\` | \`/openapi.json\` | Public | This OpenAPI document |
 | \`GET\` | \`/docs\` | Public | Swagger UI (redirects to \`/docs/\`) |
 
@@ -33,18 +39,26 @@ Any other method/path returns **404** \`{ "error": "Not Found" }\`.
 
 ## Authentication
 
-> **Status:** the building blocks are in place, but **no \`/auth\` endpoints are
-> mounted yet and no route requires a token.** The \`bearerAuth\` scheme and the
-> \`SignupRequest\` / \`LoginRequest\` / \`RefreshRequest\` / \`User\` schemas below
-> document the contract those endpoints will implement.
+**Try it here:** call \`POST /auth/signup\` or \`POST /auth/login\`, copy
+\`tokens.accessToken\` from the response, click **Authorize** above and paste it
+(without the \`Bearer \` prefix). Routes marked with a padlock now send it.
 
-- **Access token** — JWT, default lifetime \`15m\`. Send it on protected routes as
-  \`Authorization: Bearer <token>\`. Click **Authorize** above to set it in Swagger UI.
+1. **Sign up / log in** → \`{ user, tokens }\`.
+2. **Call protected routes** with \`Authorization: Bearer <accessToken>\`.
+   The access token is a JWT, default lifetime \`15m\` (\`tokens.expiresIn\` seconds).
+3. **When it expires** (401), call \`POST /auth/refresh\` with the refresh token →
+   a **new** pair. Refresh tokens are **single-use**: always store the new one.
+   Reusing an old refresh token is treated as theft and **revokes every session**.
+4. **Log out** with \`POST /auth/logout\` (this device) or \`POST /auth/logout-all\`
+   (all devices). Access tokens are stateless and stay valid until they expire.
+
+Other details:
+
 - **Refresh token** — JWT, default lifetime \`30d\`, signed with a separate secret.
   Stored server-side only as a SHA-256 hash, so it can be revoked.
 - **Passwords** — \`bcrypt(HMAC-SHA256(password, pepper))\`, cost 12.
 - **Authorization** — \`role\` (\`admin\` | \`user\`) is checked per route; a valid
-  token with the wrong role returns **403**.
+  token with the wrong role returns **403**. New accounts always get \`user\`.
 
 ## Errors
 
@@ -53,9 +67,10 @@ Every error has the body \`{ "error": string }\` (see \`ErrorResponse\`).
 | Status | Meaning |
 |---|---|
 | 400 | Request validation failed (unknown body keys are rejected) |
-| 401 | Missing / invalid / expired token, or user deleted / deactivated |
+| 401 | Bad credentials; missing / invalid / expired / revoked token; or user deleted / deactivated |
 | 403 | Authenticated but role not allowed |
 | 404 | No such route |
+| 409 | Signup with an email that is already registered |
 | 500 | Unexpected server fault (generic message) |
 | 503 | \`/health\` only — a hard dependency is down |
 
@@ -76,6 +91,11 @@ const definition = {
     {
       name: "Health",
       description: "Liveness and readiness probes for load balancers.",
+    },
+    {
+      name: "Auth",
+      description:
+        "Sign up, log in, rotate tokens, log out, and read the current user.",
     },
     {
       name: "Docs",

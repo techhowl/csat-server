@@ -69,6 +69,10 @@ export function signRefreshToken(payload: TokenPayload): string {
         expiresIn: config.jwt.refreshTtl as SignOptions["expiresIn"],
         // Include issuer for token validation
         issuer: "csat-api",
+        // Unique token ID. Without it, two refresh tokens issued to the same
+        // user within the same second (`iat` has 1s resolution) would be
+        // byte-identical and collide on the unique RefreshToken.tokenHash index.
+        jwtid: crypto.randomUUID(),
       }
     );
 
@@ -175,6 +179,30 @@ export function verifyRefreshToken(token: string): TokenPayload {
       `Failed to verify refresh token: ${error instanceof Error ? error.message : "Unknown error"}`
     );
   }
+}
+
+/**
+ * Reads the `exp` claim of a token this service just signed and returns it as
+ * a Date. Used to persist a refresh token's `expiresAt` (so the TTL index
+ * deletes it exactly when the JWT expires) and to compute `expiresIn` for
+ * clients, without re-parsing TTL strings like "30d".
+ *
+ * Does NOT verify the signature — only call it on tokens you signed yourself.
+ *
+ * @param token - A JWT signed by this service
+ * @returns The expiry instant
+ * @throws AppError (500) if the token has no numeric `exp` claim
+ */
+export function getTokenExpiry(token: string): Date {
+  const decoded = jwt.decode(token);
+  if (
+    !decoded ||
+    typeof decoded === "string" ||
+    typeof decoded.exp !== "number"
+  ) {
+    throw new AppError("Token has no expiry claim", 500);
+  }
+  return new Date(decoded.exp * 1000);
 }
 
 /**

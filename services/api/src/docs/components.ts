@@ -144,7 +144,7 @@ export const components = {
     AccessScope: {
       type: "object",
       description:
-        "Grants a user access to one SBU or department. Stored but not yet enforced by any route.",
+        "Grants a user access to one SBU or department. Stored, but not yet checked by any route.",
       properties: {
         resourceType: { type: "string", enum: ["sbu", "department"] },
         resourceId: {
@@ -192,7 +192,7 @@ export const components = {
           type: "string",
           enum: ["local", "google"],
           description:
-            "How the account authenticates. Only `local` can be created today.",
+            "How the account authenticates. Only `local` accounts can be created today (`POST /auth/signup`); Google sign-in is not implemented yet.",
         },
         role: {
           type: "string",
@@ -229,7 +229,7 @@ export const components = {
     SignupRequest: {
       type: "object",
       description: [
-        "Request body for local account creation (planned `POST /auth/signup`).",
+        "Request body for `POST /auth/signup` (local account creation).",
         "",
         "Unknown keys are **rejected** (400), so `role`, `accessScopes`,",
         "`isActive` and `provider` cannot be smuggled in.",
@@ -275,7 +275,7 @@ export const components = {
     LoginRequest: {
       type: "object",
       description: [
-        "Request body for the local credential exchange (planned `POST /auth/login`).",
+        "Request body for `POST /auth/login` (local credential exchange).",
         "",
         "Password is only checked for presence — the strength policy is not",
         "applied on login so the policy isn't leaked.",
@@ -302,7 +302,7 @@ export const components = {
     RefreshRequest: {
       type: "object",
       description:
-        "Request body for exchanging a refresh token (planned `POST /auth/refresh`). Signature and DB-hash checks happen server-side.",
+        "Request body for `POST /auth/refresh` and `POST /auth/logout`. Signature and DB-hash checks happen server-side.",
       properties: {
         refreshToken: {
           type: "string",
@@ -314,9 +314,101 @@ export const components = {
       required: ["refreshToken"],
       additionalProperties: false,
     },
+
+    // Mirrors AuthTokens in services/auth.ts.
+    AuthTokens: {
+      type: "object",
+      description: [
+        "A fresh token pair. Store **both**: refresh tokens are single-use, so",
+        "the old one stops working as soon as it has been used.",
+      ].join("\n"),
+      properties: {
+        tokenType: {
+          type: "string",
+          enum: ["Bearer"],
+          description:
+            "Send the access token as `Authorization: Bearer <accessToken>`.",
+        },
+        accessToken: {
+          type: "string",
+          description: "JWT access token for the `bearerAuth` scheme.",
+          example:
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmYwYzJhMWI0ZDVlNmY3MDgxOTJhM2MifQ.sig",
+        },
+        expiresIn: {
+          type: "integer",
+          minimum: 0,
+          description:
+            "Seconds until the access token expires (default `JWT_ACCESS_TTL` = 15m → 900).",
+          example: 900,
+        },
+        refreshToken: {
+          type: "string",
+          description:
+            "JWT refresh token. Use it once with `POST /auth/refresh`.",
+        },
+        refreshTokenExpiresAt: {
+          type: "string",
+          format: "date-time",
+          description:
+            "When the refresh token expires (default `JWT_REFRESH_TTL` = 30d).",
+          example: "2026-11-04T07:12:45.000Z",
+        },
+      },
+      required: [
+        "tokenType",
+        "accessToken",
+        "expiresIn",
+        "refreshToken",
+        "refreshTokenExpiresAt",
+      ],
+      additionalProperties: false,
+    },
+
+    // Body of POST /auth/signup and POST /auth/login (AuthResult in services/auth.ts).
+    AuthResponse: {
+      type: "object",
+      properties: {
+        user: { $ref: "#/components/schemas/User" },
+        tokens: { $ref: "#/components/schemas/AuthTokens" },
+      },
+      required: ["user", "tokens"],
+      additionalProperties: false,
+    },
+
+    // Body of POST /auth/refresh (controllers/auth.ts).
+    RefreshResponse: {
+      type: "object",
+      properties: {
+        tokens: { $ref: "#/components/schemas/AuthTokens" },
+      },
+      required: ["tokens"],
+      additionalProperties: false,
+    },
+
+    // Body of GET /auth/me (controllers/auth.ts).
+    MeResponse: {
+      type: "object",
+      properties: {
+        user: { $ref: "#/components/schemas/User" },
+      },
+      required: ["user"],
+      additionalProperties: false,
+    },
   },
 
   responses: {
+    // ConflictError thrown by services/auth.ts signup.
+    EmailConflict: {
+      description: "An account with this email already exists.",
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" },
+          example: { error: "Email is already registered" },
+        },
+      },
+    },
+
     // ValidationError from middlewares/validate.ts / error-handler.ts.
     BadRequest: {
       description:

@@ -1,4 +1,5 @@
 import { Schema, model, Document, Types } from "mongoose";
+import { z } from "zod";
 
 // Interface for the User document
 export interface IUser extends Document {
@@ -67,10 +68,10 @@ const UserSchema = new Schema<IUser>(
       unique: true,
       lowercase: true,
       trim: true,
-      match: [
-        /^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/,
-        "Please provide a valid email address",
-      ],
+      // Same regex the signup DTO validates with (z.email()), so any address
+      // the API accepts can be persisted — e.g. "user+tag@example.com". A
+      // stricter model rule would fail inside Mongoose and surface as a 500.
+      match: [z.regexes.email, "Please provide a valid email address"],
     },
 
     mobileNumber: {

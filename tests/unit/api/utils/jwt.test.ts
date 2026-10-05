@@ -20,6 +20,7 @@ import {
   verifyAccessToken,
   verifyRefreshToken,
   hashToken,
+  getTokenExpiry,
 } from "../../../../services/api/src/utils/jwt";
 
 describe("jwt utils", () => {
@@ -69,6 +70,34 @@ describe("jwt utils", () => {
       expect(() => verifyRefreshToken("x.y.z")).toThrow(
         /Invalid refresh token/
       );
+    });
+
+    it("issues distinct tokens for the same user in the same second (jti)", () => {
+      const a = signRefreshToken({ userId: "u9" });
+      const b = signRefreshToken({ userId: "u9" });
+      expect(a).not.toBe(b);
+      expect(hashToken(a)).not.toBe(hashToken(b));
+    });
+  });
+
+  describe("getTokenExpiry", () => {
+    it("returns the exp claim as a Date", () => {
+      const before = Date.now();
+      const exp = getTokenExpiry(signAccessToken({ userId: "u1" }));
+      // 15m TTL from the mock config (exp has 1s resolution).
+      expect(exp.getTime()).toBeGreaterThanOrEqual(before + 15 * 60_000 - 1000);
+      expect(exp.getTime()).toBeLessThanOrEqual(Date.now() + 15 * 60_000);
+    });
+
+    it("throws a 500 AppError for a token without exp", () => {
+      const noExp = jwt.sign({ userId: "u1" }, "x");
+      expect(() => getTokenExpiry(noExp)).toThrow(
+        expect.objectContaining({ statusCode: 500 })
+      );
+    });
+
+    it("throws for an undecodable token", () => {
+      expect(() => getTokenExpiry("garbage")).toThrow(/no expiry claim/);
     });
   });
 
