@@ -25,7 +25,7 @@ npm run build        # full TypeScript build = typecheck
 npm run test         # Vitest unit tests
 ```
 
-Integration tests (need MongoDB + secrets via Infisical):
+Integration tests (need MongoDB + secrets from `.env`):
 
 ```bash
 npm run test:integration
@@ -63,6 +63,6 @@ A stale doc is treated as a bug.
 
 ## Secrets — never commit them
 
-Secrets come from Infisical at boot, never from committed files. Don't add real
-values to `.env*`; `.env.bootstrap` is gitignored and local-only. CI runs
+Secrets live in your local `.env`, never in committed files. `.env` is
+gitignored; only `.env.example` (keys, no real values) is committed. CI runs
 **gitleaks** over full history and will fail on leaked secrets.

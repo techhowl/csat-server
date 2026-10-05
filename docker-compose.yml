@@ -2,13 +2,8 @@
 # All three Node services share one dev image and the same bind-mounted source;
 # only the start command differs.
 #
-# Secrets are NOT in .env anymore — they live in Infisical. The `dev:*` npm
-# scripts wrap each process in `infisical run`, which fetches secrets at boot
-# using INFISICAL_TOKEN + INFISICAL_API_URL. Export those on the host first:
-#   export INFISICAL_API_URL=https://<infisical-host>/api
-#   export INFISICAL_TOKEN=$(infisical login --method=universal-auth \
-#       --client-id=$INFISICAL_CLIENT_ID --client-secret=$INFISICAL_CLIENT_SECRET --plain --silent)
-# (see .env.bootstrap.example). Then `make dev`.
+# Config and secrets come from the repo-root .env (cp .env.example .env and
+# fill it in). Compose injects it into every service via env_file.
 
 services:
   api:
@@ -16,11 +11,8 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     command: npm run dev:api
-    environment:
-      - INFISICAL_API_URL=${INFISICAL_API_URL}
-      - INFISICAL_TOKEN=${INFISICAL_TOKEN}
-      - INFISICAL_PROJECT_ID=1132a6a9-384e-46be-89f2-695627f7bf39
-      - INFISICAL_ENV=dev
+    env_file:
+      - .env
     ports:
       - "4000:4000"
     volumes:
@@ -34,11 +26,8 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     command: npm run dev:worker
-    environment:
-      - INFISICAL_API_URL=${INFISICAL_API_URL}
-      - INFISICAL_TOKEN=${INFISICAL_TOKEN}
-      - INFISICAL_PROJECT_ID=1132a6a9-384e-46be-89f2-695627f7bf39
-      - INFISICAL_ENV=dev
+    env_file:
+      - .env
     volumes:
       - .:/app
       - /app/node_modules
@@ -50,11 +39,8 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     command: npm run dev:scheduler
-    environment:
-      - INFISICAL_API_URL=${INFISICAL_API_URL}
-      - INFISICAL_TOKEN=${INFISICAL_TOKEN}
-      - INFISICAL_PROJECT_ID=1132a6a9-384e-46be-89f2-695627f7bf39
-      - INFISICAL_ENV=dev
+    env_file:
+      - .env
     volumes:
       - .:/app
       - /app/node_modules

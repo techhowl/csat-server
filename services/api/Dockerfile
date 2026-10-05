@@ -17,14 +17,7 @@ RUN npm run build -w @csat/shared && npm run build -w @csat/http \
 
 FROM node:20-alpine AS runner
 ENV NODE_ENV=production
-ENV INFISICAL_ENV=prod
-ENV INFISICAL_PROJECT_ID=1132a6a9-384e-46be-89f2-695627f7bf39
 WORKDIR /app
-# Infisical CLI — installed as root before dropping privileges. `infisical run`
-# fetches secrets at boot using INFISICAL_TOKEN + INFISICAL_API_URL (passed at runtime).
-RUN apk add --no-cache bash curl \
- && curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.alpine.sh' | bash \
- && apk add --no-cache infisical
 # Run as the built-in unprivileged user.
 USER node
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
@@ -36,4 +29,6 @@ COPY --from=builder --chown=node:node /app/packages/http/dist ./packages/http/di
 COPY --from=builder --chown=node:node /app/services/api/package.json ./services/api/package.json
 COPY --from=builder --chown=node:node /app/services/api/dist ./services/api/dist
 EXPOSE 4000
-CMD infisical run --projectId "$INFISICAL_PROJECT_ID" --env "$INFISICAL_ENV" -- node services/api/dist/index.js
+# Env vars (MONGO_URI, JWT_*, PASSWORD_PEPPER, …) are supplied at runtime by the
+# orchestrator or `docker run --env-file .env` — see .env.example.
+CMD ["node", "services/api/dist/index.js"]

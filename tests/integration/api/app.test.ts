@@ -10,7 +10,7 @@ describeIntegration("API health against real Mongo", () => {
     const { config, database } = await import("@csat/shared");
     // Hard guard: afterEach wipes collections, so refuse to run against any DB
     // that isn't an explicit test database. Prevents nuking dev/prod data when
-    // MONGO_URI comes from Infisical.
+    // MONGO_URI comes from .env (or CI env).
     if (!/test/i.test(config.mongo.dbName)) {
       throw new Error(
         `Refusing to run integration tests against DB "${config.mongo.dbName}". ` +

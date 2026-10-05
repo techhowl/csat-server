@@ -12,7 +12,7 @@ describe("shared config", () => {
   const original = process.env;
 
   // Vars config.ts reads. Scrubbed before each case so ambient env (e.g.
-  // Infisical-injected LOG_LEVEL/WORKER_POLL_INTERVAL_MS during
+  // .env-loaded LOG_LEVEL/WORKER_POLL_INTERVAL_MS during
   // `npm run test:integration`) can't bleed into default-value assertions.
   const CONFIG_VARS = [
     "NODE_ENV",

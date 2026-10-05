@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import jwt from "jsonwebtoken";
 
-// Stub @csat/shared so jwt.ts doesn't try to load real Infisical secrets at
+// Stub @csat/shared so jwt.ts doesn't try to load real .env secrets at
 // import time. The values just need to be stable for sign/verify round-trips.
 vi.mock("@csat/shared", () => ({
   config: {
