@@ -35,6 +35,7 @@ import {
   loginSchema,
   refreshSchema,
   googleAuthSchema,
+  updateProfileSchema,
   signupSchema,
 } from "../../../services/api/src/dto/auth.dto";
 
@@ -115,6 +116,7 @@ describe("API docs", () => {
       "get /docs",
       "get /health",
       "get /openapi.json",
+      "patch /auth/me",
       "post /auth/google",
       "post /auth/login",
       "post /auth/logout",
@@ -146,7 +148,11 @@ describe("API docs", () => {
           .map(([m]) => `${m} ${path}`)
       )
       .sort();
-    expect(secured).toEqual(["get /auth/me", "post /auth/logout-all"]);
+    expect(secured).toEqual([
+      "get /auth/me",
+      "patch /auth/me",
+      "post /auth/logout-all",
+    ]);
   });
 
   it("resolves every $ref in the spec", async () => {
@@ -168,6 +174,7 @@ describe("API docs", () => {
     ["LoginRequest", loginSchema],
     ["RefreshRequest", refreshSchema],
     ["GoogleAuthRequest", googleAuthSchema],
+    ["UpdateProfileRequest", updateProfileSchema],
   ] as const)(
     "keeps the %s schema in sync with its Zod DTO",
     async (name, dto) => {

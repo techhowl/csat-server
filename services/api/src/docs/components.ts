@@ -35,6 +35,11 @@ const AUTH_ERROR_EXAMPLES = {
     summary: "Token valid but user.isActive is false",
     value: { error: "Account is deactivated" },
   },
+  sessionRevoked: {
+    summary:
+      "Token issued before logout-all / a password change / Google linking",
+    value: { error: "Session has been revoked" },
+  },
 };
 
 export const components = {
@@ -421,6 +426,79 @@ export const components = {
       type: "object",
       properties: {
         user: { $ref: "#/components/schemas/User" },
+      },
+      required: ["user"],
+      additionalProperties: false,
+    },
+
+    // Mirrors updateProfileSchema in dto/auth.dto.ts.
+    UpdateProfileRequest: {
+      type: "object",
+      description: [
+        "Body of `PATCH /auth/me`. Send only the fields to change; at least one",
+        "is required. Unknown keys (`email`, `role`, …) are **rejected** (400).",
+        "",
+        "**Password:**",
+        "- Account has **no password** (`hasPassword: false`, e.g. Google-only):",
+        "  send `newPassword` alone to set one.",
+        "- Account **has a password**: send `currentPassword` + `newPassword`.",
+        "  The current password must be correct, and the new one must differ.",
+      ].join("\n"),
+      properties: {
+        name: {
+          type: "string",
+          minLength: 2,
+          maxLength: 100,
+          description: "Trimmed before validation.",
+          example: "Priya Sharma",
+        },
+        mobileNumber: {
+          type: "string",
+          nullable: true,
+          pattern: "^\\+?[1-9]\\d{7,14}$",
+          description: "E.164 format, trimmed. `null` removes it.",
+          example: "+919876543210",
+        },
+        profileImage: {
+          type: "string",
+          nullable: true,
+          format: "uri",
+          maxLength: 2048,
+          description: "**https** URL only. `null` removes it.",
+          example: "https://cdn.example.com/avatars/priya.png",
+        },
+        currentPassword: {
+          type: "string",
+          format: "password",
+          minLength: 1,
+          description:
+            "Required when the account already has a password; must be omitted when it doesn't. Never sent without `newPassword`.",
+          example: "OldPassw0rd",
+        },
+        newPassword: {
+          type: "string",
+          format: "password",
+          minLength: 8,
+          allOf: [
+            { type: "string", pattern: "[A-Za-z]" },
+            { type: "string", pattern: "[0-9]" },
+          ],
+          description:
+            "8+ characters, at least one letter and one digit, at most **72 bytes** UTF-8. Setting or changing it **logs out every other device**.",
+          example: "NewPassw0rd",
+        },
+      },
+      additionalProperties: false,
+    },
+
+    // Body of PATCH /auth/me (UpdateProfileResult in services/auth.ts).
+    UpdateProfileResponse: {
+      type: "object",
+      description:
+        "`tokens` is present **only** when the password was set or changed. All earlier sessions were revoked, so the client must replace its stored tokens with these.",
+      properties: {
+        user: { $ref: "#/components/schemas/User" },
+        tokens: { $ref: "#/components/schemas/AuthTokens" },
       },
       required: ["user"],
       additionalProperties: false,

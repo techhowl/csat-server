@@ -4,6 +4,7 @@ import type {
   LoginInput,
   RefreshInput,
   SignupInput,
+  UpdateProfileInput,
 } from "../dto/auth.dto";
 import * as authService from "../services/auth";
 import { UnauthorizedError } from "../utils/errors";
@@ -59,6 +60,15 @@ export async function googleAuth(req: Request, res: Response): Promise<void> {
 export async function me(req: Request, res: Response): Promise<void> {
   const user = await authService.getCurrentUser(String(currentUser(req)._id));
   res.status(200).json({ user });
+}
+
+// PATCH /auth/me — 200 { user } or, after a password set/change, { user, tokens }.
+export async function updateMe(req: Request, res: Response): Promise<void> {
+  const result = await authService.updateProfile(
+    String(currentUser(req)._id),
+    req.body as UpdateProfileInput
+  );
+  res.status(200).json(result);
 }
 
 // `authenticate` guarantees req.user on these routes; the guard keeps the

@@ -32,6 +32,7 @@ HTTP API for the CSAT platform.
 | \`POST\` | \`/auth/logout\` | Public (refresh token in body) | End the current session |
 | \`POST\` | \`/auth/logout-all\` | **Bearer** | End every session of the user |
 | \`GET\` | \`/auth/me\` | **Bearer** | Get the authenticated user |
+| \`PATCH\` | \`/auth/me\` | **Bearer** | Update my profile; set or change my password |
 | \`POST\` | \`/auth/google\` | Public (Google ID token in body) | Sign in / sign up with Google — **howl.in only** |
 | \`GET\` | \`/openapi.json\` | Public | This OpenAPI document |
 | \`GET\` | \`/docs\` | Public | Swagger UI (redirects to \`/docs/\`) |

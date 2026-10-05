@@ -8,6 +8,7 @@ import {
   loginSchema,
   refreshSchema,
   signupSchema,
+  updateProfileSchema,
 } from "../dto/auth.dto";
 
 /**
@@ -265,6 +266,126 @@ authRouter.post("/auth/logout-all", authenticate, asyncHandler(auth.logoutAll));
  *         $ref: '#/components/responses/InternalServerError'
  */
 authRouter.get("/auth/me", authenticate, asyncHandler(auth.me));
+
+/**
+ * @openapi
+ * /auth/me:
+ *   patch:
+ *     operationId: updateCurrentUser
+ *     summary: Update my profile, set or change my password
+ *     description: >
+ *       Updates the **authenticated user's own** profile. The user is always
+ *       the owner of the access token; there is no user ID in the path or body,
+ *       so nobody can edit another person's profile. Send only the fields to
+ *       change.
+ *
+ *
+ *       **Password:**
+ *
+ *       - **No password yet** (`hasPassword: false`, e.g. a Google account):
+ *       send `newPassword` alone to set one. Password login then works too.
+ *
+ *       - **Password already set:** send `currentPassword` and `newPassword`.
+ *       The current password is verified first; the new one must be
+ *       different.
+ *
+ *
+ *       Setting or changing the password **logs out every other device**: their
+ *       refresh tokens are deleted and older access tokens are rejected. The
+ *       response then includes a fresh `tokens` pair for this device, which the
+ *       client must store in place of the old one.
+ *
+ *
+ *       All checks run before anything is saved: if the password part fails,
+ *       no other field is changed either.
+ *
+ *
+ *       A wrong `currentPassword` returns **400**, not 401, so clients don't
+ *       mistake it for an expired session.
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateProfileRequest'
+ *           examples:
+ *             profile:
+ *               summary: Update name and mobile number
+ *               value: { name: "Priya S.", mobileNumber: "+919876543210" }
+ *             removeFields:
+ *               summary: Remove mobile number and profile image
+ *               value: { mobileNumber: null, profileImage: null }
+ *             setPassword:
+ *               summary: Set a first password (account has none)
+ *               value: { newPassword: "NewPassw0rd" }
+ *             changePassword:
+ *               summary: Change an existing password
+ *               value: { currentPassword: "OldPassw0rd", newPassword: "NewPassw0rd" }
+ *     responses:
+ *       200:
+ *         description: >
+ *           Profile updated. `tokens` is included only when the password was
+ *           set or changed.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UpdateProfileResponse'
+ *       400:
+ *         description: Validation failed, or a password rule was broken.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               empty:
+ *                 summary: Empty body
+ *                 value: { error: "Validation failed - : Provide at least one field to update" }
+ *               serverOwned:
+ *                 summary: Tried to change a server-owned field
+ *                 value: { error: "Validation failed - : Unrecognized key: \"email\"" }
+ *               wrongCurrent:
+ *                 summary: currentPassword is wrong
+ *                 value: { error: "Current password is incorrect" }
+ *               missingCurrent:
+ *                 summary: Account has a password but currentPassword was not sent
+ *                 value: { error: "currentPassword is required to change the password" }
+ *               noPasswordYet:
+ *                 summary: currentPassword sent for an account without a password
+ *                 value: { error: "No password is set for this account — omit currentPassword" }
+ *               samePassword:
+ *                 summary: newPassword equals the current password
+ *                 value: { error: "New password must be different from the current password" }
+ *               currentWithoutNew:
+ *                 summary: currentPassword without newPassword
+ *                 value: { error: "Validation failed - newPassword: newPassword is required when currentPassword is provided" }
+ *               weakPassword:
+ *                 summary: newPassword fails the policy
+ *                 value: { error: "Validation failed - newPassword: Password must contain at least one number" }
+ *               badImage:
+ *                 summary: profileImage is not an https URL
+ *                 value: { error: "Validation failed - profileImage: Profile image must be an https URL" }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       409:
+ *         description: The password was changed by another request at the same time.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               error: "Password was changed by another request; reload and try again"
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
+authRouter.patch(
+  "/auth/me",
+  authenticate,
+  validate(updateProfileSchema),
+  asyncHandler(auth.updateMe)
+);
 
 /**
  * @openapi

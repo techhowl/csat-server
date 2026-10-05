@@ -1,8 +1,10 @@
 # Authentication
 
-> **Status (as of 2026-10-05): live.** Email + password auth (any domain) and **Sign in with Google (howl.in only)**, with JWT access tokens and rotating refresh tokens. Seven endpoints under `/auth`, all documented in Swagger at `/docs`.
+> **Status (as of 2026-10-05): live.** Email + password auth (any domain) and **Sign in with Google (howl.in only)**, with JWT access tokens and rotating refresh tokens. Eight endpoints under `/auth` (including profile update and set/change password), all documented in Swagger at `/docs`.
 >
-> Not built yet: set/change password, enforcement of `accessScopes`, and login rate limiting (see §9).
+> Not built yet: forgot-password (email reset), enforcement of `accessScopes`, and login rate limiting (see §9).
+
+To test it by hand (including real Google tokens via the OAuth Playground), follow [guides/testing-auth.md](../guides/testing-auth.md).
 
 Swagger (`/docs`) is the source of truth for request and response details. This document explains the design, how the pieces fit together, and what's left to do.
 
@@ -21,15 +23,16 @@ Passwords are stored as **bcrypt(HMAC-SHA256(password, pepper))**.
 
 ## 2. Endpoints
 
-| Method | Path               | Auth                    | Body                                         | Success                      | Errors                  |
-| ------ | ------------------ | ----------------------- | -------------------------------------------- | ---------------------------- | ----------------------- |
-| `POST` | `/auth/signup`     | Public                  | `name`, `email`, `password`, `mobileNumber?` | `201 { user, tokens }`       | 400, 409                |
-| `POST` | `/auth/login`      | Public                  | `email`, `password`                          | `200 { user, tokens }`       | 400, 401                |
-| `POST` | `/auth/refresh`    | Refresh token in body   | `refreshToken`                               | `200 { tokens }`             | 400, 401                |
-| `POST` | `/auth/logout`     | Refresh token in body   | `refreshToken`                               | `204`                        | 400                     |
-| `POST` | `/auth/logout-all` | **Bearer**              | –                                            | `204`                        | 401                     |
-| `GET`  | `/auth/me`         | **Bearer**              | –                                            | `200 { user }`               | 401                     |
-| `POST` | `/auth/google`     | Google ID token in body | `idToken`                                    | `201`/`200 { user, tokens }` | 400, 401, 403, 409, 503 |
+| Method  | Path               | Auth                    | Body                                                                          | Success                      | Errors                  |
+| ------- | ------------------ | ----------------------- | ----------------------------------------------------------------------------- | ---------------------------- | ----------------------- |
+| `POST`  | `/auth/signup`     | Public                  | `name`, `email`, `password`, `mobileNumber?`                                  | `201 { user, tokens }`       | 400, 409                |
+| `POST`  | `/auth/login`      | Public                  | `email`, `password`                                                           | `200 { user, tokens }`       | 400, 401                |
+| `POST`  | `/auth/refresh`    | Refresh token in body   | `refreshToken`                                                                | `200 { tokens }`             | 400, 401                |
+| `POST`  | `/auth/logout`     | Refresh token in body   | `refreshToken`                                                                | `204`                        | 400                     |
+| `POST`  | `/auth/logout-all` | **Bearer**              | –                                                                             | `204`                        | 401                     |
+| `GET`   | `/auth/me`         | **Bearer**              | –                                                                             | `200 { user }`               | 401                     |
+| `PATCH` | `/auth/me`         | **Bearer**              | `name?`, `mobileNumber?`, `profileImage?`, `currentPassword?`, `newPassword?` | `200 { user, tokens? }`      | 400, 401, 409           |
+| `POST`  | `/auth/google`     | Google ID token in body | `idToken`                                                                     | `201`/`200 { user, tokens }` | 400, 401, 403, 409, 503 |
 
 `tokens` = `{ tokenType: "Bearer", accessToken, expiresIn, refreshToken, refreshTokenExpiresAt }`. `user` is the public user. It never includes `password`, `googleId` or `__v`, and it carries `hasPassword` and `googleLinked` so the frontend knows which sign-in methods the account has. Google sign-in has its own section, §3.
 
@@ -40,7 +43,39 @@ Passwords are stored as **bcrypt(HMAC-SHA256(password, pepper))**.
 - **Refresh** atomically consumes the presented token (`findOneAndDelete`) and issues a new pair. If the token's signature is valid but it's no longer stored (already used or logged out), **all of that user's refresh tokens are deleted** and a `401 Refresh token has been revoked` is returned. A deactivated user's tokens are also all revoked.
   - **Exception:** a deliberate revoke-all (`/auth/logout-all`, or Google being linked) stamps `user.sessionsRevokedAt`. A token issued before that time just gets the 401, and newer sessions are **not** revoked. Otherwise a stale old device could log the user out of their fresh session.
 - **Logout** is idempotent: an unknown or already-revoked token still returns 204.
-- **Access tokens can't be revoked.** After logout they still work for up to `JWT_ACCESS_TTL` (15 min), but `authenticate` reloads the user on every request, so **deactivating or deleting a user cuts them off immediately**.
+- **Access tokens after logout:** a single-device `logout` can't revoke the access token; it keeps working for up to `JWT_ACCESS_TTL` (15 min). A **revoke-all** is different: `logout-all`, a password set/change, and Google linking all stamp `sessionsRevokedAt`, and `authenticate` then rejects any access token issued in an earlier second (`401 Session has been revoked`). `authenticate` also reloads the user on every request, so **deactivating or deleting a user cuts them off immediately**.
+
+### Profile & password (`PATCH /auth/me`)
+
+The user can only edit **their own** profile. The user ID comes from the verified access token; there's no ID in the path, and the strict body rejects `email`, `role`, `isActive`, `_id` and every other server-owned field.
+
+| Field             | Rule                                                           |
+| ----------------- | -------------------------------------------------------------- |
+| `name`            | Trimmed, 2–100 characters                                      |
+| `mobileNumber`    | E.164; `null` removes it                                       |
+| `profileImage`    | **https** URL only, ≤ 2048 characters; `null` removes it       |
+| `newPassword`     | Signup policy: 8+ characters, a letter and a digit, ≤ 72 bytes |
+| `currentPassword` | Only with `newPassword`                                        |
+
+**Password rules:**
+
+| Account                                              | Send                              | Result                                                           |
+| ---------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------- |
+| No password (`hasPassword: false`, e.g. Google-only) | `newPassword`                     | Password **set**                                                 |
+| No password                                          | `currentPassword` + `newPassword` | `400 No password is set for this account — omit currentPassword` |
+| Has a password                                       | `newPassword` only                | `400 currentPassword is required to change the password`         |
+| Has a password                                       | wrong `currentPassword`           | `400 Current password is incorrect`                              |
+| Has a password                                       | `newPassword` same as current     | `400 New password must be different from the current password`   |
+| Has a password                                       | correct `currentPassword` + new   | Password **changed**                                             |
+
+How it stays safe:
+
+- **Nothing is saved unless everything passes.** All checks run first, then one database update writes every field. A wrong current password leaves `name` and the rest untouched too.
+- **No double write.** The password update only matches if the stored hash is still the one that was verified (or still empty, for a first set). If two requests race, one wins and the other gets `409 Password was changed by another request; reload and try again`.
+- **Other devices are logged out.** Setting or changing the password revokes every session (refresh tokens deleted, older access tokens rejected) and returns a **fresh `tokens` pair** for the calling device. The client must store it. Profile-only updates return just `{ user }` and leave sessions alone.
+- **A wrong current password is a 400, not a 401,** so frontends don't mistake it for an expired session and log the user out.
+- The new password is stored with the usual `hashPassword` (HMAC-pepper + bcrypt) and is never logged.
+- **Known limit:** JWT `iat` has whole-second precision. An access token issued in the **same second** as the revoke is still accepted, so that the fresh pair isn't rejected. That window is under one second.
 
 ### Flow
 
@@ -287,7 +322,9 @@ flowchart TD
     E -- not found --> X4[401 User not found]
     E -- found --> F{user.isActive?}
     F -- no --> X5[401 Account is deactivated]
-    F -- yes --> G["req.user = user → next()"]
+    F -- yes --> R{"token iat before the second of<br/>user.sessionsRevokedAt?"}
+    R -- yes --> X6[401 Session has been revoked]
+    R -- no --> G["req.user = user → next()"]
 ```
 
 ### 7.5 `requireRole(roles)` middleware
@@ -342,7 +379,7 @@ To add a protected route, put `security: [{ bearerAuth: [] }]` and `401: { $ref:
 ## 9. Remaining gaps
 
 1. **No rate limiting or lockout on `/auth/login`, `/auth/signup` and `/auth/google`.** Needed before going public to slow down password guessing (e.g. `express-rate-limit`, per IP + per email).
-2. **No set/change password yet.** Google-only accounts, and password accounts whose password was cleared when Google was linked, can't use password login until `POST /auth/password/set` exists. `user.hasPassword` is already exposed for that screen.
+2. **No "forgot password".** A user who doesn't know their current password can't reset it; that needs an email service for reset links. Changing **email** isn't supported either, since it would need re-verification. Include `PATCH /auth/me` in the rate limiting from item 1, because it checks `currentPassword`.
 3. **`accessScopes`** (SBU/department access) is stored but never checked. It needs a `requireScope(...)` middleware once those resources exist.
 4. **No way to create an admin.** Signup always gives `role: "user"`. Admins have to be promoted directly in the database until an admin endpoint or seed script exists.
 5. **Access and refresh tokens differ only by secret** (same issuer, no `aud`/`typ`). If both secrets were set to the same value, a refresh token would pass as an access token. Fix: add an `audience`, and/or check at startup that the secrets differ.
@@ -359,6 +396,7 @@ To add a protected route, put `security: [{ bearerAuth: [] }]` and `401: { $ref:
 | ----------------------------------- | ------------------------------------------------- | ------------------- |
 | Auth endpoints, full flow           | `tests/integration/api/auth.test.ts`              | Yes                 |
 | Google sign-in, sign-up and linking | `tests/integration/api/google-auth.test.ts`       | Yes (Google mocked) |
+| Profile update, set/change password | `tests/integration/api/profile.test.ts`           | Yes (Google mocked) |
 | Google token and domain checks      | `tests/unit/api/utils/google.test.ts`             | No                  |
 | Swagger ↔ routes/DTOs               | `tests/unit/api/docs.test.ts`                     | No                  |
 | DTOs                                | `tests/unit/api/dto/auth.dto.test.ts`             | No                  |
@@ -370,5 +408,7 @@ To add a protected route, put `security: [{ bearerAuth: [] }]` and `401: { $ref:
 The integration suite covers: signup and its normalisation, hashed storage of the password and refresh tokens, duplicate email (409), privilege-field smuggling (400), login and `lastLoginAt`, identical 401s for a wrong password vs an unknown email, `/auth/me`, rotation, reuse detection revoking every session, tampered tokens, idempotent logout, logout-all (including a stale device not ending newer sessions), and a deactivated user being blocked on login, `/me` and refresh.
 
 The Google suite covers: account creation (201), repeat sign-in (200), linking to an existing password account (same `_id`, password cleared, old sessions revoked), no second account via password signup, a different Google `sub` (409), deactivated accounts left untouched, 403/401/503 passing through with no user created, body validation, and password signup staying open to any domain.
+
+The profile suite covers: profile-only updates (no new tokens, sessions untouched), removing fields with `null`, setting a first password on a Google account (password login then works, every old refresh **and** access token rejected, the fresh pair works), changing a password, each password-rule 400 leaving the database unchanged, two concurrent first-password sets (one 200, one 409), server-owned fields rejected, 401 without a token or when deactivated, and other users never being touched.
 
 Run it with `npm run test:integration` (needs `MONGO_URI`; the DB name must contain `test`). Integration files run one at a time because they share the test database.

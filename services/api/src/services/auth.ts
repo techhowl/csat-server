@@ -1,7 +1,12 @@
 import type { Document } from "mongoose";
 import { createLogger } from "@csat/shared";
 import { RefreshToken, User, type IUser } from "../models";
-import type { GoogleAuthInput, LoginInput, SignupInput } from "../dto/auth.dto";
+import type {
+  GoogleAuthInput,
+  LoginInput,
+  SignupInput,
+  UpdateProfileInput,
+} from "../dto/auth.dto";
 import { comparePassword, hashPassword } from "../utils/password";
 import { verifyGoogleIdToken, type GoogleIdentity } from "../utils/google";
 import {
@@ -12,7 +17,11 @@ import {
   signRefreshToken,
   verifyRefreshToken,
 } from "../utils/jwt";
-import { ConflictError, UnauthorizedError } from "../utils/errors";
+import {
+  ConflictError,
+  UnauthorizedError,
+  ValidationError,
+} from "../utils/errors";
 
 /**
  * Service layer for authentication — business logic only, no req/res.
@@ -297,6 +306,124 @@ export async function getCurrentUser(userId: string): Promise<PublicUser> {
     throw new UnauthorizedError("User not found");
   }
   return toPublicUser(user);
+}
+
+/** Result of PATCH /auth/me. `tokens` is present only if the password changed. */
+export interface UpdateProfileResult {
+  user: PublicUser;
+  tokens?: AuthTokens;
+}
+
+/**
+ * Updates the user's own profile: name, mobileNumber, profileImage and/or the
+ * password. `userId` must come from the verified access token, never from the
+ * request body or path.
+ *
+ * Password rules:
+ * - no password yet  → `newPassword` alone sets one (`currentPassword` rejected)
+ * - password already → `currentPassword` must verify before `newPassword` is
+ *   hashed and stored, and must differ from it
+ *
+ * Everything is validated before anything is written, and all changes go in a
+ * single update — a wrong current password leaves the profile untouched too.
+ * The password write is a compare-and-swap on the hash we verified (or on
+ * "no password"), so two concurrent changes can't both succeed.
+ *
+ * Setting or changing the password ends every other session (refresh tokens
+ * deleted, older access tokens rejected by `authenticate`) and returns a fresh
+ * token pair so the calling device stays logged in.
+ *
+ * @throws ValidationError (400) when a password rule is broken
+ * @throws ConflictError (409) when the password changed concurrently
+ * @throws UnauthorizedError (401) when the user is gone or deactivated
+ */
+export async function updateProfile(
+  userId: string,
+  input: UpdateProfileInput
+): Promise<UpdateProfileResult> {
+  const user = await User.findById(userId).select("+password").exec();
+  if (!user) {
+    throw new UnauthorizedError("User not found");
+  }
+  if (!user.isActive) {
+    throw new UnauthorizedError("Account is deactivated");
+  }
+
+  // Explicit field-by-field update — never spread the body into the query.
+  const $set: Record<string, unknown> = {};
+  const $unset: Record<string, ""> = {};
+  if (input.name !== undefined) $set.name = input.name;
+  if (input.mobileNumber === null) $unset.mobileNumber = "";
+  else if (input.mobileNumber !== undefined) {
+    $set.mobileNumber = input.mobileNumber;
+  }
+  if (input.profileImage !== undefined) $set.profileImage = input.profileImage;
+
+  // `password: null` matches both null and a missing field.
+  const filter: Record<string, unknown> = { _id: user._id };
+  let passwordAction: "set" | "changed" | undefined;
+
+  if (input.newPassword !== undefined) {
+    const currentHash = user.password || null;
+
+    if (currentHash === null) {
+      if (input.currentPassword !== undefined) {
+        throw new ValidationError(
+          "No password is set for this account — omit currentPassword"
+        );
+      }
+      filter.password = null;
+      passwordAction = "set";
+    } else {
+      if (input.currentPassword === undefined) {
+        throw new ValidationError(
+          "currentPassword is required to change the password"
+        );
+      }
+      // 400, not 401: frontends treat 401 as "token expired" and log out.
+      if (!(await comparePassword(input.currentPassword, currentHash))) {
+        throw new ValidationError("Current password is incorrect");
+      }
+      if (await comparePassword(input.newPassword, currentHash)) {
+        throw new ValidationError(
+          "New password must be different from the current password"
+        );
+      }
+      filter.password = currentHash;
+      passwordAction = "changed";
+    }
+
+    $set.password = await hashPassword(input.newPassword);
+  }
+
+  const update: Record<string, unknown> = {};
+  if (Object.keys($set).length > 0) update.$set = $set;
+  if (Object.keys($unset).length > 0) update.$unset = $unset;
+
+  const { matchedCount } = await User.updateOne(filter, update, {
+    runValidators: true,
+  }).exec();
+
+  if (matchedCount === 0) {
+    if (passwordAction) {
+      throw new ConflictError(
+        "Password was changed by another request; reload and try again"
+      );
+    }
+    throw new UnauthorizedError("User not found");
+  }
+
+  let tokens: AuthTokens | undefined;
+  if (passwordAction) {
+    const revokedSessions = await revokeAllSessions(userId);
+    tokens = await issueTokens(userId);
+    log.info(`Password ${passwordAction}; other sessions revoked`, {
+      userId,
+      revokedSessions,
+    });
+  }
+
+  return { user: await getCurrentUser(userId), ...(tokens ? { tokens } : {}) };
 }
 
 /**
