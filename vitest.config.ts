@@ -30,8 +30,11 @@ export default defineConfig(({ mode }) => ({
     setupFiles: ["tests/setup.ts"],
     // Integration files share one test DB and each wipes every collection
     // after each test, so running them in parallel lets one file delete
-    // another's data mid-test. Run them one at a time; unit tests stay parallel.
-    fileParallelism: mode !== "integration",
+    // another's data mid-test. Run files one at a time whenever integration
+    // suites are active: `--mode integration` (MONGO_URI from .env) OR a
+    // MONGO_URI in the environment, which is how CI runs `npm run
+    // test:coverage`. Plain `npm test` without Mongo stays parallel.
+    fileParallelism: !(mode === "integration" || process.env.MONGO_URI),
     // Mongo connect (esp. a remote URI) can exceed the 10s default for
     // beforeAll/afterAll.
     hookTimeout: 30000,

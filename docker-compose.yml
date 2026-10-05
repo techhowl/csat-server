@@ -18,7 +18,8 @@ services:
     volumes:
       - mongo-data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 })"]
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 })"]
       # Each probe opens several connections, and Mongo logs every one. Probe
       # every 2s only while starting (all depends_on needs), then hourly.
       start_period: 60s
