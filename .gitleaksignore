@@ -1,0 +1,13 @@
+# Reviewed gitleaks false positives. Gitleaks scans the full git history, so a
+# finding stays in old commits even after the line is fixed — list it here by
+# its exact fingerprint (commit:file:rule:line) instead of rewriting history.
+# Only add entries after confirming the match is NOT a real secret.
+
+# Fake example JWTs in the PATCH /auth/me Swagger examples (no real signature,
+# payload is a sample user ID). Replaced with "<... (JWT)>" placeholders later.
+1847e1812a7e4a2800154342d0e449689b82e015:services/api/src/routes/auth.ts:generic-api-key:466
+1847e1812a7e4a2800154342d0e449689b82e015:services/api/src/routes/auth.ts:generic-api-key:468
+
+# Integration-test fixture password ("SecondPassw0rd") for a throwaway user in
+# the concurrent first-password test against an ephemeral test database.
+78749e6541cebf278b525466750800d3ac4f8a6b:tests/integration/api/profile.test.ts:generic-api-key:301

@@ -463,9 +463,9 @@ authRouter.get("/auth/me", authenticate, asyncHandler(auth.me));
  *                     updatedAt: "2026-10-05T09:42:10.000Z"
  *                   tokens:
  *                     tokenType: Bearer
- *                     accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmYwYzJhMWI0ZDVlNmY3MDgxOTJhM2MifQ.sig
+ *                     accessToken: "<new access token (JWT)>"
  *                     expiresIn: 900
- *                     refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmYwYzJhMWI0ZDVlNmY3MDgxOTJhM2MiLCJqdGkiOiIuLi4ifQ.sig
+ *                     refreshToken: "<new refresh token (JWT)>"
  *                     refreshTokenExpiresAt: "2026-11-04T09:42:10.000Z"
  *               profileOnly:
  *                 summary: Profile fields only (no tokens)

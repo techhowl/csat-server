@@ -326,7 +326,7 @@ export const components = {
           minLength: 1,
           description:
             "Google ID token (a JWT) — the `credential` returned by the Google Identity Services sign-in button.",
-          example: "eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...",
+          example: "<Google ID token (JWT)>",
         },
       },
       required: ["idToken"],
@@ -367,8 +367,7 @@ export const components = {
         accessToken: {
           type: "string",
           description: "JWT access token for the `bearerAuth` scheme.",
-          example:
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmYwYzJhMWI0ZDVlNmY3MDgxOTJhM2MifQ.sig",
+          example: "<access token (JWT)>",
         },
         expiresIn: {
           type: "integer",
