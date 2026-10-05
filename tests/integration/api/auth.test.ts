@@ -240,6 +240,27 @@ describeIntegration("Auth routes against real Mongo", () => {
     }
   });
 
+  it("does not let a stale device end new sessions after logout-all", async () => {
+    const stale = (await signup()).body.tokens;
+    await request(app)
+      .post("/auth/logout-all")
+      .set("Authorization", `Bearer ${stale.accessToken}`);
+    const fresh = (await login()).body.tokens;
+
+    // The old device's token is rejected as revoked…
+    const old = await request(app)
+      .post("/auth/refresh")
+      .send({ refreshToken: stale.refreshToken });
+    expect(old.status).toBe(401);
+    expect(old.body).toEqual({ error: "Refresh token has been revoked" });
+
+    // …but that is NOT treated as theft: the new session survives.
+    const res = await request(app)
+      .post("/auth/refresh")
+      .send({ refreshToken: fresh.refreshToken });
+    expect(res.status).toBe(200);
+  });
+
   it("blocks a deactivated user on login, /auth/me and refresh", async () => {
     const { body } = await signup();
     const { User } = await import("../../../services/api/src/models");

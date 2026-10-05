@@ -192,7 +192,7 @@ export const components = {
           type: "string",
           enum: ["local", "google"],
           description:
-            "How the account authenticates. Only `local` accounts can be created today (`POST /auth/signup`); Google sign-in is not implemented yet.",
+            "How the account was **created**: `local` via `POST /auth/signup`, `google` via `POST /auth/google`. It does not change when Google is linked later; use `hasPassword` / `googleLinked` to see which sign-in methods work now.",
         },
         role: {
           type: "string",
@@ -208,6 +208,16 @@ export const components = {
           type: "boolean",
           description: "`false` blocks all authenticated requests (401).",
         },
+        hasPassword: {
+          type: "boolean",
+          description:
+            "Whether email + password login works. `false` for Google-created accounts and for password accounts whose password was cleared when Google was linked.",
+        },
+        googleLinked: {
+          type: "boolean",
+          description:
+            "Whether `POST /auth/google` can sign in to this account.",
+        },
         lastLoginAt: { type: "string", format: "date-time", nullable: true },
         createdAt: { type: "string", format: "date-time" },
         updatedAt: { type: "string", format: "date-time" },
@@ -220,6 +230,8 @@ export const components = {
         "role",
         "accessScopes",
         "isActive",
+        "hasPassword",
+        "googleLinked",
         "createdAt",
         "updatedAt",
       ],
@@ -295,6 +307,24 @@ export const components = {
         },
       },
       required: ["email", "password"],
+      additionalProperties: false,
+    },
+
+    // Mirrors googleAuthSchema in dto/auth.dto.ts.
+    GoogleAuthRequest: {
+      type: "object",
+      description:
+        "Request body for `POST /auth/google`. Signature, audience, expiry and the allowed-domain rule are verified server-side.",
+      properties: {
+        idToken: {
+          type: "string",
+          minLength: 1,
+          description:
+            "Google ID token (a JWT) — the `credential` returned by the Google Identity Services sign-in button.",
+          example: "eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...",
+        },
+      },
+      required: ["idToken"],
       additionalProperties: false,
     },
 
@@ -398,6 +428,30 @@ export const components = {
   },
 
   responses: {
+    // AppError(…, 403) thrown by utils/google.ts verifyGoogleIdToken.
+    GoogleDomainForbidden: {
+      description:
+        "The Google account is not on an allowed Workspace domain (`GOOGLE_ALLOWED_DOMAINS`, default `howl.in`), or its email is not verified. Personal @gmail.com accounts always land here.",
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" },
+          example: { error: "Only howl.in Google accounts can sign in" },
+        },
+      },
+    },
+
+    // AppError(…, 503) thrown by utils/google.ts when GOOGLE_CLIENT_ID is empty.
+    GoogleNotConfigured: {
+      description:
+        "Google sign-in is disabled on this server because `GOOGLE_CLIENT_ID` is not set.",
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" },
+          example: { error: "Google sign-in is not configured" },
+        },
+      },
+    },
+
     // ConflictError thrown by services/auth.ts signup.
     EmailConflict: {
       description: "An account with this email already exists.",

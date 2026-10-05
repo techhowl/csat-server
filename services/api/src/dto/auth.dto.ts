@@ -126,9 +126,25 @@ export const refreshSchema = z
   .strict();
 
 /**
+ * POST /auth/google — sign in / sign up with a Google ID token.
+ *
+ * `idToken` is the `credential` the Google Identity Services button hands the
+ * frontend. Only presence is checked here; signature, audience, expiry and the
+ * allowed-domain rule are enforced in utils/google.ts.
+ */
+export const googleAuthSchema = z
+  .object({
+    idToken: z
+      .string({ error: "Google ID token is required" })
+      .min(1, { error: "Google ID token is required" }),
+  })
+  .strict();
+
+/**
  * Inferred TS types — the single source of truth for handler/service inputs.
  * After `validate(signupSchema)`, `req.body` is exactly `SignupInput`.
  */
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
+export type GoogleAuthInput = z.infer<typeof googleAuthSchema>;

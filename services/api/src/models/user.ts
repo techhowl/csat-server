@@ -11,7 +11,11 @@ export interface IUser extends Document {
 
   // Authentication
   password?: string;
+  // How the account was CREATED. A local account that later links Google keeps
+  // "local"; check `googleId` / `password` for the methods it can use now.
   provider: "local" | "google";
+  // Google's stable account ID (`sub` claim). Set once Google is linked.
+  googleId?: string;
 
   // Authorization
   role: "admin" | "user";
@@ -25,6 +29,9 @@ export interface IUser extends Document {
   // Account Status
   isActive: boolean;
   lastLoginAt?: Date;
+  // When all sessions were last revoked on purpose (logout-all, Google
+  // linking). Refresh tokens issued before this are "revoked", not "reused".
+  sessionsRevokedAt?: Date;
 
   // Timestamps (automatically added by Mongoose)
   createdAt: Date;
@@ -97,6 +104,14 @@ const UserSchema = new Schema<IUser>(
       default: "local",
     },
 
+    // Users are matched by this, not by email (emails can change; `sub` can't).
+    // Sparse: the unique index ignores the many users without Google linked.
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+
     // Authorization
     role: {
       type: String,
@@ -117,6 +132,11 @@ const UserSchema = new Schema<IUser>(
     },
 
     lastLoginAt: {
+      type: Date,
+      default: null,
+    },
+
+    sessionsRevokedAt: {
       type: Date,
       default: null,
     },

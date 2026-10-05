@@ -28,6 +28,10 @@ export default defineConfig(({ mode }) => ({
         ? { ...loadEnv(mode, __dirname, ""), MONGO_DB_NAME: "csat_test" }
         : {},
     setupFiles: ["tests/setup.ts"],
+    // Integration files share one test DB and each wipes every collection
+    // after each test, so running them in parallel lets one file delete
+    // another's data mid-test. Run them one at a time; unit tests stay parallel.
+    fileParallelism: mode !== "integration",
     // Mongo connect (esp. a remote URI) can exceed the 10s default for
     // beforeAll/afterAll.
     hookTimeout: 30000,

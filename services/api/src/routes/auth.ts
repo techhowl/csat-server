@@ -3,7 +3,12 @@ import * as auth from "../controllers/auth";
 import { asyncHandler } from "../middlewares/async-handler";
 import { authenticate } from "../middlewares/authenticate";
 import { validate } from "../middlewares/validate";
-import { loginSchema, refreshSchema, signupSchema } from "../dto/auth.dto";
+import {
+  googleAuthSchema,
+  loginSchema,
+  refreshSchema,
+  signupSchema,
+} from "../dto/auth.dto";
 
 /**
  * Route layer for authentication. Paths are written in full (`/auth/...`) and
@@ -119,6 +124,12 @@ authRouter.post("/auth/login", validate(loginSchema), asyncHandler(auth.login));
  *       **Reuse detection:** presenting a refresh token that is validly signed
  *       but already used (or logged out) is treated as theft. Every session
  *       for that user is revoked and the user must log in again.
+ *
+ *
+ *       Exception: a token issued **before** a deliberate revoke-all
+ *       (`/auth/logout-all`, or Google being linked to the account) just gets
+ *       401 `Refresh token has been revoked`. Sessions created after the
+ *       revoke keep working.
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -253,4 +264,96 @@ authRouter.post("/auth/logout-all", authenticate, asyncHandler(auth.logoutAll));
  *       500:
  *         $ref: '#/components/responses/InternalServerError'
  */
-authRouter.get("/auth/me", authenticate, auth.me);
+authRouter.get("/auth/me", authenticate, asyncHandler(auth.me));
+
+/**
+ * @openapi
+ * /auth/google:
+ *   post:
+ *     operationId: googleAuth
+ *     summary: Sign in or sign up with Google (howl.in only)
+ *     description: >
+ *       Exchanges a Google ID token for a CSAT session. A single endpoint covers
+ *       both sign-up and sign-in. Only Google Workspace accounts on an allowed
+ *       domain (`GOOGLE_ALLOWED_DOMAINS`, default `howl.in`) are accepted;
+ *       normal `POST /auth/signup` is **not** domain-restricted.
+ *
+ *
+ *       **Getting a token:** the frontend renders the Google Identity Services
+ *       button with this API's `GOOGLE_CLIENT_ID` and posts the `credential`
+ *       it receives as `idToken`.
+ *
+ *
+ *       **How the account is resolved** (one person = one account):
+ *
+ *       1. A user already linked to this Google account → **sign in (200)**.
+ *
+ *       2. A password account with the same email → Google is **linked** to it
+ *       **(200)**. For security, the account's old password is cleared and
+ *       its existing sessions are revoked: password sign-up never proved
+ *       ownership of the email, while Google just did. The response shows
+ *       `hasPassword: false`.
+ *
+ *       3. No account → a new `google` account with role `user` is **created
+ *       (201)**.
+ *
+ *
+ *       After this, use the returned tokens exactly like those from
+ *       `/auth/login`.
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/GoogleAuthRequest'
+ *     responses:
+ *       200:
+ *         description: Signed in to an existing account (or linked Google to it).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       201:
+ *         description: New account created from the Google profile and signed in.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         description: Google token invalid/expired/for another client, or the account is deactivated.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               invalidToken:
+ *                 summary: Bad signature, expired, or wrong audience
+ *                 value:
+ *                   error: Invalid Google token
+ *               deactivated:
+ *                 summary: Account disabled
+ *                 value:
+ *                   error: Account is deactivated
+ *       403:
+ *         $ref: '#/components/responses/GoogleDomainForbidden'
+ *       409:
+ *         description: The email belongs to an account linked to a different Google account.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               error: This email is linked to a different Google account
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ *       503:
+ *         $ref: '#/components/responses/GoogleNotConfigured'
+ */
+authRouter.post(
+  "/auth/google",
+  validate(googleAuthSchema),
+  asyncHandler(auth.googleAuth)
+);

@@ -32,6 +32,7 @@ HTTP API for the CSAT platform.
 | \`POST\` | \`/auth/logout\` | Public (refresh token in body) | End the current session |
 | \`POST\` | \`/auth/logout-all\` | **Bearer** | End every session of the user |
 | \`GET\` | \`/auth/me\` | **Bearer** | Get the authenticated user |
+| \`POST\` | \`/auth/google\` | Public (Google ID token in body) | Sign in / sign up with Google — **howl.in only** |
 | \`GET\` | \`/openapi.json\` | Public | This OpenAPI document |
 | \`GET\` | \`/docs\` | Public | Swagger UI (redirects to \`/docs/\`) |
 
@@ -52,6 +53,20 @@ Any other method/path returns **404** \`{ "error": "Not Found" }\`.
 4. **Log out** with \`POST /auth/logout\` (this device) or \`POST /auth/logout-all\`
    (all devices). Access tokens are stateless and stay valid until they expire.
 
+### Sign in with Google (howl.in only)
+
+\`POST /auth/google\` with the ID token from Google's sign-in button returns the
+same \`{ user, tokens }\` as login: **201** when it created the account, **200**
+when it signed in. Only Google Workspace accounts on an allowed domain
+(default \`howl.in\`) are accepted; everyone else gets **403**. Normal
+\`/auth/signup\` stays open to any email.
+
+One person = one account. If a password account with the same email already
+exists, Google is **linked** to it. For security its old password is cleared
+and its sessions are revoked (\`hasPassword: false\`), because password sign-up
+never proved ownership of the email. \`user.hasPassword\` and
+\`user.googleLinked\` show which sign-in methods an account has.
+
 Other details:
 
 - **Refresh token** — JWT, default lifetime \`30d\`, signed with a separate secret.
@@ -70,7 +85,9 @@ Every error has the body \`{ "error": string }\` (see \`ErrorResponse\`).
 | 401 | Bad credentials; missing / invalid / expired / revoked token; or user deleted / deactivated |
 | 403 | Authenticated but role not allowed |
 | 404 | No such route |
-| 409 | Signup with an email that is already registered |
+| 403 | \`/auth/google\` only — not an allowed Google Workspace domain |
+| 409 | Signup with an email that is already registered, or the email is linked to a different Google account |
+| 503 | \`/auth/google\` only — Google sign-in not configured on this server |
 | 500 | Unexpected server fault (generic message) |
 | 503 | \`/health\` only — a hard dependency is down |
 
@@ -95,7 +112,7 @@ const definition = {
     {
       name: "Auth",
       description:
-        "Sign up, log in, rotate tokens, log out, and read the current user.",
+        "Sign up, log in (password or Google), rotate tokens, log out, and read the current user.",
     },
     {
       name: "Docs",

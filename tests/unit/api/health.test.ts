@@ -25,6 +25,8 @@ vi.mock("@csat/shared", () => ({
       refreshTtl: "30d",
     },
     security: { passwordPepper: "test-pepper" },
+    google: { clientId: "", allowedDomains: ["howl.in"] },
+    cors: { origins: [] },
   },
 }));
 

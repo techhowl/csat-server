@@ -1,5 +1,10 @@
 import type { Request, Response } from "express";
-import type { LoginInput, RefreshInput, SignupInput } from "../dto/auth.dto";
+import type {
+  GoogleAuthInput,
+  LoginInput,
+  RefreshInput,
+  SignupInput,
+} from "../dto/auth.dto";
 import * as authService from "../services/auth";
 import { UnauthorizedError } from "../utils/errors";
 
@@ -41,9 +46,19 @@ export async function logoutAll(req: Request, res: Response): Promise<void> {
   res.status(204).end();
 }
 
+// POST /auth/google — 201 when the Google sign-in created the account, 200
+// when it signed into (or linked) an existing one. Same body as login.
+export async function googleAuth(req: Request, res: Response): Promise<void> {
+  const { created, ...result } = await authService.googleAuth(
+    req.body as GoogleAuthInput
+  );
+  res.status(created ? 201 : 200).json(result);
+}
+
 // GET /auth/me — 200 with the authenticated user.
-export function me(req: Request, res: Response): void {
-  res.status(200).json({ user: authService.toPublicUser(currentUser(req)) });
+export async function me(req: Request, res: Response): Promise<void> {
+  const user = await authService.getCurrentUser(String(currentUser(req)._id));
+  res.status(200).json({ user });
 }
 
 // `authenticate` guarantees req.user on these routes; the guard keeps the

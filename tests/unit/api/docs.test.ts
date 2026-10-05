@@ -24,6 +24,8 @@ vi.mock("@csat/shared", () => ({
       refreshTtl: "30d",
     },
     security: { passwordPepper: "test-pepper" },
+    google: { clientId: "", allowedDomains: ["howl.in"] },
+    cors: { origins: [] },
   },
 }));
 
@@ -32,6 +34,7 @@ import { createApp } from "../../../services/api/src/app";
 import {
   loginSchema,
   refreshSchema,
+  googleAuthSchema,
   signupSchema,
 } from "../../../services/api/src/dto/auth.dto";
 
@@ -112,6 +115,7 @@ describe("API docs", () => {
       "get /docs",
       "get /health",
       "get /openapi.json",
+      "post /auth/google",
       "post /auth/login",
       "post /auth/logout",
       "post /auth/logout-all",
@@ -163,6 +167,7 @@ describe("API docs", () => {
     ["SignupRequest", signupSchema],
     ["LoginRequest", loginSchema],
     ["RefreshRequest", refreshSchema],
+    ["GoogleAuthRequest", googleAuthSchema],
   ] as const)(
     "keeps the %s schema in sync with its Zod DTO",
     async (name, dto) => {

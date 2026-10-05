@@ -206,6 +206,24 @@ export function getTokenExpiry(token: string): Date {
 }
 
 /**
+ * Reads the `iat` (issued-at) claim of an ALREADY VERIFIED token as a Date.
+ * Second resolution, like the claim itself.
+ *
+ * @throws AppError (500) if the token has no numeric `iat` claim
+ */
+export function getTokenIssuedAt(token: string): Date {
+  const decoded = jwt.decode(token);
+  if (
+    !decoded ||
+    typeof decoded === "string" ||
+    typeof decoded.iat !== "number"
+  ) {
+    throw new AppError("Token has no issued-at claim", 500);
+  }
+  return new Date(decoded.iat * 1000);
+}
+
+/**
  * Creates a SHA-256 hash of a token for secure storage.
  * Used when storing refresh tokens in the database to avoid storing them in plain text.
  *

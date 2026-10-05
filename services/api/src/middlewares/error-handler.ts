@@ -1,7 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
 import { createLogger } from "@csat/shared";
 import { ZodError } from "zod";
-import { AppError, ValidationError } from "../utils/errors";
+import {
+  AppError,
+  ServiceUnavailableError,
+  ValidationError,
+} from "../utils/errors";
 
 const log = createLogger("api");
 
@@ -60,13 +64,13 @@ export function errorHandler(
     // Only expose the real message for client (4xx) errors that are also
     // operational (expected). 5xx AppErrors are server faults, and a
     // non-operational 4xx is a programming error — both can leak internal
-    // details, so send a generic message instead.
-    const isClientError = err.statusCode < 500;
+    // details, so send a generic message instead. ServiceUnavailableError is
+    // the one 5xx whose fixed message is written for clients.
+    const exposeMessage =
+      err.isOperational &&
+      (err.statusCode < 500 || err instanceof ServiceUnavailableError);
     res.status(err.statusCode).json({
-      error:
-        isClientError && err.isOperational
-          ? err.message
-          : "Internal Server Error",
+      error: exposeMessage ? err.message : "Internal Server Error",
       // In development, you might want to include more details
       ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
     });

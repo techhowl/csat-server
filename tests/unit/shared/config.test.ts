@@ -27,6 +27,9 @@ describe("shared config", () => {
     "JWT_ACCESS_TTL",
     "JWT_REFRESH_TTL",
     "PASSWORD_PEPPER",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_ALLOWED_DOMAINS",
+    "CORS_ORIGINS",
   ];
 
   beforeEach(() => {
@@ -87,6 +90,24 @@ describe("shared config", () => {
     expect(config.scheduler.tickIntervalMs).toBe(10000);
     expect(config.jwt.accessTtl).toBe("15m");
     expect(config.jwt.refreshTtl).toBe("30d");
+    expect(config.google.clientId).toBe("");
+    expect(config.google.allowedDomains).toEqual(["howl.in"]);
+    expect(config.cors.origins).toEqual([]);
+  });
+
+  it("parses Google and CORS lists (trimmed, lowercased, empties dropped)", async () => {
+    Object.assign(process.env, REQUIRED_ENV);
+    process.env.GOOGLE_CLIENT_ID = "123.apps.googleusercontent.com";
+    process.env.GOOGLE_ALLOWED_DOMAINS = " Howl.in , example.org ,";
+    process.env.CORS_ORIGINS = "http://localhost:3000, https://app.howl.in";
+
+    const config = await loadConfig();
+    expect(config.google.clientId).toBe("123.apps.googleusercontent.com");
+    expect(config.google.allowedDomains).toEqual(["howl.in", "example.org"]);
+    expect(config.cors.origins).toEqual([
+      "http://localhost:3000",
+      "https://app.howl.in",
+    ]);
   });
 
   it("reads provided values", async () => {

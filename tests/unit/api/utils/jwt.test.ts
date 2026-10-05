@@ -21,6 +21,7 @@ import {
   verifyRefreshToken,
   hashToken,
   getTokenExpiry,
+  getTokenIssuedAt,
 } from "../../../../services/api/src/utils/jwt";
 
 describe("jwt utils", () => {
@@ -98,6 +99,22 @@ describe("jwt utils", () => {
 
     it("throws for an undecodable token", () => {
       expect(() => getTokenExpiry("garbage")).toThrow(/no expiry claim/);
+    });
+  });
+
+  describe("getTokenIssuedAt", () => {
+    it("returns the iat claim as a Date (second resolution)", () => {
+      const before = Math.floor(Date.now() / 1000) * 1000;
+      const iat = getTokenIssuedAt(signRefreshToken({ userId: "u1" }));
+      expect(iat.getTime()).toBeGreaterThanOrEqual(before);
+      expect(iat.getTime()).toBeLessThanOrEqual(Date.now());
+    });
+
+    it("throws a 500 AppError for a token without iat", () => {
+      const noIat = jwt.sign({ userId: "u1" }, "x", { noTimestamp: true });
+      expect(() => getTokenIssuedAt(noIat)).toThrow(
+        expect.objectContaining({ statusCode: 500 })
+      );
     });
   });
 
