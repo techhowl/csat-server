@@ -247,9 +247,17 @@ authRouter.post("/auth/logout-all", authenticate, asyncHandler(auth.logoutAll));
  *   get:
  *     operationId: getCurrentUser
  *     summary: Get the authenticated user
- *     description: >
+ *     description: |
  *       Returns the user the access token belongs to, freshly loaded from the
  *       database (so role or status changes show up immediately).
+ *
+ *       Use it before `PATCH /auth/me` to see which password flow applies:
+ *
+ *       | Field | Meaning |
+ *       |---|---|
+ *       | `hasPassword: false` | No password yet (Google account). Set one with `PATCH /auth/me` `{ "newPassword": "…" }` — no old password needed. |
+ *       | `hasPassword: true` | Has a password. Change it with `{ "currentPassword": "…", "newPassword": "…" }`. |
+ *       | `googleLinked: true` | "Sign in with Google" works for this account. |
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -260,6 +268,42 @@ authRouter.post("/auth/logout-all", authenticate, asyncHandler(auth.logoutAll));
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/MeResponse'
+ *             examples:
+ *               googleOnly:
+ *                 summary: Signed up with Google — no password yet
+ *                 value:
+ *                   user:
+ *                     _id: 66f0c2a1b4d5e6f708192a3c
+ *                     name: Priya Sharma
+ *                     email: priya@howl.in
+ *                     profileImage: https://lh3.googleusercontent.com/a/priya
+ *                     provider: google
+ *                     role: user
+ *                     accessScopes: []
+ *                     isActive: true
+ *                     hasPassword: false
+ *                     googleLinked: true
+ *                     lastLoginAt: "2026-10-05T09:30:00.000Z"
+ *                     createdAt: "2026-10-05T09:30:00.000Z"
+ *                     updatedAt: "2026-10-05T09:30:00.000Z"
+ *               passwordAccount:
+ *                 summary: Password account
+ *                 value:
+ *                   user:
+ *                     _id: 66f0c2a1b4d5e6f708192a3d
+ *                     name: Ravi Kumar
+ *                     email: ravi@example.com
+ *                     mobileNumber: "+919876543210"
+ *                     profileImage: null
+ *                     provider: local
+ *                     role: user
+ *                     accessScopes: []
+ *                     isActive: true
+ *                     hasPassword: true
+ *                     googleLinked: false
+ *                     lastLoginAt: "2026-10-05T09:30:00.000Z"
+ *                     createdAt: "2026-10-01T08:00:00.000Z"
+ *                     updatedAt: "2026-10-05T09:30:00.000Z"
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  *       500:
@@ -273,35 +317,83 @@ authRouter.get("/auth/me", authenticate, asyncHandler(auth.me));
  *   patch:
  *     operationId: updateCurrentUser
  *     summary: Update my profile, set or change my password
- *     description: >
+ *     description: |
  *       Updates the **authenticated user's own** profile. The user is always
- *       the owner of the access token; there is no user ID in the path or body,
- *       so nobody can edit another person's profile. Send only the fields to
- *       change.
+ *       the owner of the access token — there is no user ID in the path or
+ *       body, so nobody can edit another person's profile. Send **only** the
+ *       fields you want to change; at least one is required.
  *
+ *       ### Which password case am I?
  *
- *       **Password:**
+ *       Call `GET /auth/me` and look at `user.hasPassword`:
  *
- *       - **No password yet** (`hasPassword: false`, e.g. a Google account):
- *       send `newPassword` alone to set one. Password login then works too.
+ *       | `hasPassword` | Typical account | Body to send | Old password? |
+ *       |---|---|---|---|
+ *       | `false` | Signed up with **Google**, or Google was linked to it | `{ "newPassword": "…" }` | **Not needed** — there isn't one. Sending `currentPassword` is a 400. |
+ *       | `true` | Signed up with email + password, or set one earlier | `{ "currentPassword": "…", "newPassword": "…" }` | **Required** and must be correct. |
  *
- *       - **Password already set:** send `currentPassword` and `newPassword`.
- *       The current password is verified first; the new one must be
- *       different.
+ *       ### Walkthrough: signed in with Google → set a password
  *
+ *       1. `POST /auth/google` (or the frontend's Google button) → copy
+ *          `tokens.accessToken` from the response.
+ *       2. Click **Authorize** (top of the page), paste the token without the
+ *          `Bearer ` prefix.
+ *       3. Optional: `GET /auth/me` → confirm `hasPassword` is `false`.
+ *       4. `PATCH /auth/me` → **Try it out** → choose the example
+ *          **"Set a first password (Google account, no old password)"**:
+ *          `{ "newPassword": "MyNewPassw0rd" }` → **Execute**.
+ *       5. Response **200** with `user.hasPassword: true` and a **new
+ *          `tokens`** pair. Every earlier session (including the token you
+ *          just used) is now logged out.
+ *       6. Click **Authorize** → **Logout** → paste the **new**
+ *          `tokens.accessToken`.
+ *       7. You can now sign in either way: `POST /auth/google` **or**
+ *          `POST /auth/login` with your email and the new password — it's
+ *          the same account.
  *
- *       Setting or changing the password **logs out every other device**: their
- *       refresh tokens are deleted and older access tokens are rejected. The
- *       response then includes a fresh `tokens` pair for this device, which the
- *       client must store in place of the old one.
+ *       ### Walkthrough: change an existing password
  *
+ *       1. Authorize with a valid access token.
+ *       2. `PATCH /auth/me` with
+ *          `{ "currentPassword": "OldPassw0rd", "newPassword": "NewPassw0rd" }`.
+ *       3. **200** with new `tokens` → re-authorize with them. The old
+ *          password no longer works for login.
  *
- *       All checks run before anything is saved: if the password part fails,
- *       no other field is changed either.
+ *       ### Password rules
  *
+ *       - `newPassword`: 8+ characters, at least one letter and one digit,
+ *         at most 72 bytes (UTF-8). Must differ from the current password.
+ *       - `currentPassword`: only together with `newPassword`.
+ *       - A wrong `currentPassword` is **400**, not 401, so clients don't
+ *         mistake it for an expired login.
  *
- *       A wrong `currentPassword` returns **400**, not 401, so clients don't
- *       mistake it for an expired session.
+ *       ### What happens after a password set/change
+ *
+ *       - Every session of the account is logged out: refresh tokens are
+ *         deleted and access tokens issued earlier get
+ *         `401 Session has been revoked`.
+ *       - The response includes a **fresh `tokens` pair for this device** —
+ *         the client must replace its stored tokens with it.
+ *       - Profile-only updates (no `newPassword`) return just `{ user }` and
+ *         don't affect sessions.
+ *
+ *       ### Profile fields
+ *
+ *       | Field | Rule | Remove with |
+ *       |---|---|---|
+ *       | `name` | trimmed, 2–100 characters | — (required on every account) |
+ *       | `mobileNumber` | E.164, e.g. `+919876543210` | `null` |
+ *       | `profileImage` | **https** URL, ≤ 2048 characters | `null` |
+ *
+ *       `email`, `role`, `isActive`, `accessScopes`, `provider` and any other
+ *       field are **rejected** (400) — they can't be changed here.
+ *
+ *       ### All or nothing
+ *
+ *       Every check runs before anything is saved, and all fields are written
+ *       in one update. If the password part fails, `name` and the other
+ *       fields sent with it are **not** changed either. If two password changes
+ *       race, one wins and the other gets **409**.
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -312,29 +404,98 @@ authRouter.get("/auth/me", authenticate, asyncHandler(auth.me));
  *           schema:
  *             $ref: '#/components/schemas/UpdateProfileRequest'
  *           examples:
+ *             setPassword:
+ *               summary: Set a first password (Google account, no old password)
+ *               description: >
+ *                 For `hasPassword: false`. Send `newPassword` only — do
+ *                 **not** send `currentPassword`.
+ *               value: { newPassword: "MyNewPassw0rd" }
+ *             changePassword:
+ *               summary: Change an existing password
+ *               description: >
+ *                 For `hasPassword: true`. `currentPassword` must be the
+ *                 password you log in with today.
+ *               value: { currentPassword: "OldPassw0rd", newPassword: "NewPassw0rd" }
  *             profile:
- *               summary: Update name and mobile number
- *               value: { name: "Priya S.", mobileNumber: "+919876543210" }
+ *               summary: Update name, mobile number and profile image
+ *               value:
+ *                 name: "Priya S."
+ *                 mobileNumber: "+919876543210"
+ *                 profileImage: "https://cdn.example.com/avatars/priya.png"
  *             removeFields:
  *               summary: Remove mobile number and profile image
  *               value: { mobileNumber: null, profileImage: null }
- *             setPassword:
- *               summary: Set a first password (account has none)
- *               value: { newPassword: "NewPassw0rd" }
- *             changePassword:
- *               summary: Change an existing password
- *               value: { currentPassword: "OldPassw0rd", newPassword: "NewPassw0rd" }
+ *             profileAndPassword:
+ *               summary: Update the name and set a first password together
+ *               description: >
+ *                 Allowed in one request. If the password part fails, the
+ *                 name is not changed either.
+ *               value: { name: "Priya S.", newPassword: "MyNewPassw0rd" }
  *     responses:
  *       200:
- *         description: >
- *           Profile updated. `tokens` is included only when the password was
- *           set or changed.
+ *         description: |
+ *           Profile updated.
+ *
+ *           - **Password set or changed** → `{ user, tokens }`. All other
+ *             sessions were logged out; store the new `tokens`.
+ *           - **Profile fields only** → `{ user }`. Sessions are untouched.
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/UpdateProfileResponse'
+ *             examples:
+ *               passwordSet:
+ *                 summary: Password set on a Google account (new tokens)
+ *                 value:
+ *                   user:
+ *                     _id: 66f0c2a1b4d5e6f708192a3c
+ *                     name: Priya Sharma
+ *                     email: priya@howl.in
+ *                     profileImage: https://lh3.googleusercontent.com/a/priya
+ *                     provider: google
+ *                     role: user
+ *                     accessScopes: []
+ *                     isActive: true
+ *                     hasPassword: true
+ *                     googleLinked: true
+ *                     lastLoginAt: "2026-10-05T09:30:00.000Z"
+ *                     createdAt: "2026-10-05T09:30:00.000Z"
+ *                     updatedAt: "2026-10-05T09:42:10.000Z"
+ *                   tokens:
+ *                     tokenType: Bearer
+ *                     accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmYwYzJhMWI0ZDVlNmY3MDgxOTJhM2MifQ.sig
+ *                     expiresIn: 900
+ *                     refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmYwYzJhMWI0ZDVlNmY3MDgxOTJhM2MiLCJqdGkiOiIuLi4ifQ.sig
+ *                     refreshTokenExpiresAt: "2026-11-04T09:42:10.000Z"
+ *               profileOnly:
+ *                 summary: Profile fields only (no tokens)
+ *                 value:
+ *                   user:
+ *                     _id: 66f0c2a1b4d5e6f708192a3d
+ *                     name: Priya S.
+ *                     email: priya@howl.in
+ *                     mobileNumber: "+919876543210"
+ *                     profileImage: https://cdn.example.com/avatars/priya.png
+ *                     provider: google
+ *                     role: user
+ *                     accessScopes: []
+ *                     isActive: true
+ *                     hasPassword: false
+ *                     googleLinked: true
+ *                     lastLoginAt: "2026-10-05T09:30:00.000Z"
+ *                     createdAt: "2026-10-05T09:30:00.000Z"
+ *                     updatedAt: "2026-10-05T09:45:00.000Z"
  *       400:
- *         description: Validation failed, or a password rule was broken.
+ *         description: |
+ *           Validation failed, or a password rule was broken. Nothing was
+ *           saved. The most common mistakes:
+ *
+ *           | Message | Fix |
+ *           |---|---|
+ *           | `No password is set for this account — omit currentPassword` | Google account: send `newPassword` only. |
+ *           | `currentPassword is required to change the password` | The account has a password: also send `currentPassword`. |
+ *           | `Current password is incorrect` | Send the password you log in with today. |
+ *           | `New password must be different from the current password` | Pick a different `newPassword`. |
  *         content:
  *           application/json:
  *             schema:
@@ -368,7 +529,29 @@ authRouter.get("/auth/me", authenticate, asyncHandler(auth.me));
  *                 summary: profileImage is not an https URL
  *                 value: { error: "Validation failed - profileImage: Profile image must be an https URL" }
  *       401:
- *         $ref: '#/components/responses/Unauthorized'
+ *         description: |
+ *           Missing, invalid or expired access token, a deactivated account —
+ *           or **`Session has been revoked`**: the token was issued before a
+ *           password set/change or `logout-all`. Re-authorize with the
+ *           `tokens.accessToken` returned by the password change (or log in
+ *           again).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               missingHeader:
+ *                 summary: Not authorized in Swagger / no Authorization header
+ *                 value: { error: "Authorization header missing" }
+ *               sessionRevoked:
+ *                 summary: Old token used after a password change
+ *                 value: { error: "Session has been revoked" }
+ *               expired:
+ *                 summary: Access token expired
+ *                 value: { error: "Invalid access token: jwt expired" }
+ *               deactivated:
+ *                 summary: Account deactivated
+ *                 value: { error: "Account is deactivated" }
  *       409:
  *         description: The password was changed by another request at the same time.
  *         content:

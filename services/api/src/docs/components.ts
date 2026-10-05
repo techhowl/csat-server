@@ -472,7 +472,7 @@ export const components = {
           format: "password",
           minLength: 1,
           description:
-            "Required when the account already has a password; must be omitted when it doesn't. Never sent without `newPassword`.",
+            "The password you log in with today. **Required** when `hasPassword` is `true`. **Leave it out** when `hasPassword` is `false` (e.g. you signed up with Google) — sending it then is a 400. Never sent without `newPassword`.",
           example: "OldPassw0rd",
         },
         newPassword: {
@@ -484,7 +484,7 @@ export const components = {
             { type: "string", pattern: "[0-9]" },
           ],
           description:
-            "8+ characters, at least one letter and one digit, at most **72 bytes** UTF-8. Setting or changing it **logs out every other device**.",
+            "The password to set. Alone, it sets a first password (Google accounts); with `currentPassword`, it changes the existing one. 8+ characters, at least one letter and one digit, at most **72 bytes** UTF-8, and different from the current password. Setting or changing it **logs out every other device** and the response returns new `tokens`.",
           example: "NewPassw0rd",
         },
       },

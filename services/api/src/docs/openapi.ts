@@ -52,7 +52,9 @@ Any other method/path returns **404** \`{ "error": "Not Found" }\`.
    a **new** pair. Refresh tokens are **single-use**: always store the new one.
    Reusing an old refresh token is treated as theft and **revokes every session**.
 4. **Log out** with \`POST /auth/logout\` (this device) or \`POST /auth/logout-all\`
-   (all devices). Access tokens are stateless and stay valid until they expire.
+   (all devices). After a single-device logout the access token stays valid
+   until it expires; after \`logout-all\` (or a password set/change) every older
+   access token is rejected with **401** \`Session has been revoked\`.
 
 ### Sign in with Google (howl.in only)
 
@@ -67,6 +69,21 @@ exists, Google is **linked** to it. For security its old password is cleared
 and its sessions are revoked (\`hasPassword: false\`), because password sign-up
 never proved ownership of the email. \`user.hasPassword\` and
 \`user.googleLinked\` show which sign-in methods an account has.
+
+### Profile and password — \`PATCH /auth/me\`
+
+Edit **your own** profile (\`name\`, \`mobileNumber\`, \`profileImage\`) and
+set or change your password. First check \`GET /auth/me\` → \`user.hasPassword\`:
+
+| \`hasPassword\` | You are… | Send | Old password needed? |
+|---|---|---|---|
+| \`false\` | signed up with Google (or Google was linked) | \`{ "newPassword": "…" }\` | **No** — there isn't one |
+| \`true\` | a password account | \`{ "currentPassword": "…", "newPassword": "…" }\` | **Yes** |
+
+After a password set/change the response contains a **new \`tokens\` pair** and
+every other session is logged out — click **Authorize** again with the new
+\`tokens.accessToken\`. See the \`PATCH /auth/me\` operation below for a full
+walkthrough.
 
 Other details:
 
