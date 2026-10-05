@@ -40,26 +40,26 @@ and reused.
 
 - Docker (Desktop) running
 - Node 20+ (only needed for local lint/typecheck; the stack itself runs in Docker)
-- [Infisical CLI](https://infisical.com/docs/cli/overview) — `brew install infisical/get-cli/infisical`
 
-## Secrets (Infisical)
+## Secrets (.env)
 
-Secrets are **not** in `.env`. They live in our self-hosted Infisical project
-(pinned in `.infisical.json`) and are fetched at boot by `infisical run`, which
-wraps every service process. Each service authenticates with an `INFISICAL_TOKEN`
-minted from a Machine Identity (Universal Auth).
+Config and secrets live in a gitignored `.env` at the repo root. Every key the
+app reads is documented in `.env.example`.
 
 First time:
 
 ```bash
-cp .env.bootstrap.example .env.bootstrap   # fill API URL + machine identity creds (gitignored)
-eval "$(make login)"                       # mints INFISICAL_TOKEN into your shell
+cp .env.example .env    # then generate JWT_*/PASSWORD_PEPPER (MONGO_URI defaults to the compose Mongo)
+                        # (openssl rand -base64 48)
 ```
+
+`.env` is loaded by docker compose (`env_file`) for `make dev`, by a dotenv
+preload in nodemon for `npm run dev:*` on the host, and by
+`vitest --mode integration` for `npm run test:integration`.
 
 ## Quick start
 
 ```bash
-eval "$(make login)"     # ensure INFISICAL_TOKEN + INFISICAL_API_URL are exported
 make dev                 # build + start api, worker, scheduler (foreground, live reload)
 # ... or detached:
 make up
@@ -70,7 +70,7 @@ API: http://localhost:4000/health
 ```bash
 make down      # stop + remove containers (keeps mongo data volume)
 make down-v    # also drop the mongo volume
-make logs      # tail all service logs
+make logs      # tail app logs (make logs-mongo for Mongo)
 make ps        # status
 ```
 
@@ -95,7 +95,6 @@ Each service has its own multi-stage `Dockerfile` (`services/*/Dockerfile`) —
 one image per service, ready for the CI build/scan/push stage. Runs as the
 unprivileged `node` user.
 
-Each prod image bundles the Infisical CLI; its `CMD` is
-`infisical run --env "$INFISICAL_ENV" -- node …`. The orchestrator (Dokploy)
-supplies `INFISICAL_API_URL`, `INFISICAL_TOKEN`, and `INFISICAL_ENV=prod` at
-runtime — no app secrets are baked into the image or stored in the orchestrator.
+Each prod image's `CMD` is plain `node …`. The orchestrator (Dokploy) supplies
+the env vars documented in `.env.example` at runtime (or locally:
+`docker run --env-file .env …`) — no secrets are baked into the image.

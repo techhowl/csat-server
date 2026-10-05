@@ -9,11 +9,11 @@ models**. Self-documents via OpenAPI at `/docs`.
 
 ## Run
 
-From the repo root (Docker + Infisical) — see
+From the repo root (Docker + `.env`) — see
 [Getting started](../../docs/guides/getting-started.md):
 
 ```bash
-eval "$(make login)"
+cp .env.example .env   # first time only; fill in values
 make dev          # all services; API at http://localhost:4000
 ```
 

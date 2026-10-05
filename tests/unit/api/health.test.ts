@@ -16,6 +16,18 @@ vi.mock("@csat/shared", () => ({
   database: {
     isConnected: () => connected,
   },
+  // Read at import time by the auth routes (jwt/password utils).
+  config: {
+    jwt: {
+      accessSecret: "test-access-secret",
+      refreshSecret: "test-refresh-secret",
+      accessTtl: "15m",
+      refreshTtl: "30d",
+    },
+    security: { passwordPepper: "test-pepper" },
+    google: { clientId: "", allowedDomains: ["howl.in"] },
+    cors: { origins: [] },
+  },
 }));
 
 import { createApp } from "../../../services/api/src/app";

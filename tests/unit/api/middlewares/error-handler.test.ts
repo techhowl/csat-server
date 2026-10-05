@@ -8,6 +8,7 @@ import {
   UnauthorizedError,
   NotFoundError,
   ConflictError,
+  ServiceUnavailableError,
 } from "../../../../services/api/src/utils/errors";
 
 // Mock the logger
@@ -242,6 +243,24 @@ describe("errorHandler middleware", () => {
     // generic string so internal details don't leak to clients.
     expect(statusMock).toHaveBeenCalledWith(503);
     expect(jsonMock).toHaveBeenCalledWith({ error: "Internal Server Error" });
+  });
+
+  it("exposes the fixed message of a ServiceUnavailableError (503)", () => {
+    const error = new ServiceUnavailableError(
+      "Google sign-in is not configured"
+    );
+
+    errorHandler(
+      error,
+      mockRequest as Request,
+      mockResponse as Response,
+      mockNext
+    );
+
+    expect(statusMock).toHaveBeenCalledWith(503);
+    expect(jsonMock).toHaveBeenCalledWith({
+      error: "Google sign-in is not configured",
+    });
   });
 
   it("should redact a non-operational 4xx AppError message", () => {

@@ -43,16 +43,16 @@ flowchart TD
     end
 
     MONGO[("MongoDB")]
-    INF["Infisical<br/>(secrets at boot)"]
+    ENV[".env / orchestrator env<br/>(config + secrets)"]
 
     API --> SHARED
     WRK --> SHARED
     SCH --> SHARED
     API --> HTTP
     SHARED -- "Mongoose singleton" --> MONGO
-    INF -. "injects env via infisical run" .-> API
-    INF -.-> WRK
-    INF -.-> SCH
+    ENV -. "process.env at boot" .-> API
+    ENV -.-> WRK
+    ENV -.-> SCH
 ```
 
 ## Request flow (api)
@@ -74,9 +74,9 @@ Details and the reference example (`GET /health`) are in
 
 ## Cross-cutting concerns
 
-- **Secrets** never live in `.env`. They come from a self-hosted Infisical
-  project (pinned in `.infisical.json`) and are injected at boot by
-  `infisical run`. See [Getting started](../guides/getting-started.md#secrets-infisical).
+- **Secrets** come from a gitignored `.env` locally and from orchestrator env
+  vars in production; `.env.example` documents every key. See
+  [Getting started](../guides/getting-started.md#2-secrets-env).
 - **Config** is read once into the typed `config` object in `@csat/shared`;
   services import it rather than reading `process.env` directly.
 - **Logging** is structured via winston (`createLogger("<service>")`).

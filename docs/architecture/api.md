@@ -15,6 +15,7 @@ services/api/src/
   models/            Mongoose models, one per collection (empty for now)
   middlewares/       cross-cutting: not-found (404), error-handler (centralised)
   docs/openapi.ts    the service's own OpenAPI document (base def + JSDoc glob)
+  docs/components.ts reusable OpenAPI schemas, responses, security schemes
 ```
 
 The rule: a layer only calls the layer directly below it. Controllers never
@@ -47,7 +48,8 @@ Follow the `health` example end to end:
    `routes/index.ts`. Reference: `routes/health.ts`.
 4. **Model** — if it persists, add a Mongoose model in `models/`.
 5. **Docs** — add an `@openapi` JSDoc block above the route handler, and any
-   reusable schema to the `components.schemas` in `docs/openapi.ts`.
+   reusable schema/response to `docs/components.ts`, and add the path to the
+   expected-paths list in `tests/unit/api/docs.test.ts`.
 
 ## OpenAPI / Swagger — already built in
 
@@ -56,7 +58,8 @@ in the spec so they stay in sync with the code.
 
 - The spec is assembled in
   [`services/api/src/docs/openapi.ts`](../../services/api/src/docs/openapi.ts):
-  a typed base `definition` (info, servers, reusable `components.schemas`) plus
+  a typed base `definition` (info, servers, tags) plus reusable components from
+  [`docs/components.ts`](../../services/api/src/docs/components.ts) plus
   per-endpoint operations picked up from `@openapi` JSDoc blocks on the route
   files via [`buildOpenApiSpec`](../../packages/http/src/docs.ts).
 - It's mounted by `mountDocs` from `@csat/http`:

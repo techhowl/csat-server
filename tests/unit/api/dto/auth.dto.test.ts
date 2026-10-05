@@ -3,6 +3,7 @@ import {
   signupSchema,
   loginSchema,
   refreshSchema,
+  updateProfileSchema,
 } from "../../../../services/api/src/dto/auth.dto";
 
 // Pure Zod schemas — no config, no DB. We assert both the happy path
@@ -136,6 +137,71 @@ describe("auth DTOs", () => {
       expect(() =>
         refreshSchema.parse({ refreshToken: "abc", extra: 1 })
       ).toThrow();
+    });
+  });
+
+  describe("updateProfileSchema", () => {
+    const fails = (body: unknown) =>
+      updateProfileSchema.safeParse(body).success === false;
+
+    it("trims name and accepts a single field", () => {
+      expect(updateProfileSchema.parse({ name: "  Ada  " })).toEqual({
+        name: "Ada",
+      });
+    });
+
+    it("rejects an empty body", () => {
+      expect(fails({})).toBe(true);
+    });
+
+    it("rejects server-owned fields", () => {
+      for (const key of ["email", "role", "isActive", "googleId", "_id"]) {
+        expect(fails({ name: "Ada", [key]: "x" })).toBe(true);
+      }
+    });
+
+    it("allows null to remove mobileNumber and profileImage", () => {
+      expect(
+        updateProfileSchema.parse({ mobileNumber: null, profileImage: null })
+      ).toEqual({ mobileNumber: null, profileImage: null });
+    });
+
+    it("accepts only https profile images", () => {
+      expect(fails({ profileImage: "https://cdn.example.com/a.png" })).toBe(
+        false
+      );
+      for (const url of [
+        "http://cdn.example.com/a.png",
+        "javascript:alert(1)",
+        "data:image/png;base64,AAAA",
+        "not a url",
+      ]) {
+        expect(fails({ profileImage: url })).toBe(true);
+      }
+    });
+
+    it("accepts newPassword alone (first-time set)", () => {
+      expect(fails({ newPassword: "Passw0rd1" })).toBe(false);
+    });
+
+    it("accepts currentPassword + newPassword (change)", () => {
+      expect(
+        fails({ currentPassword: "anything", newPassword: "Passw0rd1" })
+      ).toBe(false);
+    });
+
+    it("rejects currentPassword without newPassword", () => {
+      expect(fails({ currentPassword: "Passw0rd1" })).toBe(true);
+    });
+
+    it("applies the strong-password policy to newPassword", () => {
+      expect(fails({ newPassword: "short1" })).toBe(true);
+      expect(fails({ newPassword: "nodigitshere" })).toBe(true);
+      expect(fails({ newPassword: "x1".repeat(40) })).toBe(true);
+    });
+
+    it("rejects an invalid mobile number", () => {
+      expect(fails({ mobileNumber: "12" })).toBe(true);
     });
   });
 });

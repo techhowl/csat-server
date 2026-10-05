@@ -6,14 +6,16 @@
   "scripts": {
     "build": "tsc --build",
     "clean": "tsc --build --clean",
-    "start": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=${INFISICAL_ENV:-prod} -- node dist/index.js",
+    "start": "node dist/index.js",
     "dev": "nodemon"
   },
   "dependencies": {
     "@csat/http": "*",
     "@csat/shared": "*",
     "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
     "express": "^4.21.2",
+    "google-auth-library": "^11.1.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.9.3",
@@ -21,6 +23,7 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.10"
   }

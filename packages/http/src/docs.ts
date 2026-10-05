@@ -35,7 +35,10 @@ export interface MountDocsOptions {
 export function buildOpenApiSpec(options: OpenApiSpecOptions): object {
   return swaggerJSDoc({
     definition: options.definition,
-    apis: options.apis,
+    // Glob patterns must use forward slashes: the glob library treats `\` as an
+    // escape character, so a Windows `path.join` result (C:\...\*.ts) matches
+    // nothing and the spec silently ends up with zero paths.
+    apis: options.apis.map((pattern) => pattern.replace(/\\/g, "/")),
   });
 }
 

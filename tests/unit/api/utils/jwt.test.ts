@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import jwt from "jsonwebtoken";
 
-// Stub @csat/shared so jwt.ts doesn't try to load real Infisical secrets at
+// Stub @csat/shared so jwt.ts doesn't try to load real .env secrets at
 // import time. The values just need to be stable for sign/verify round-trips.
 vi.mock("@csat/shared", () => ({
   config: {
@@ -20,6 +20,8 @@ import {
   verifyAccessToken,
   verifyRefreshToken,
   hashToken,
+  getTokenExpiry,
+  getTokenIssuedAt,
 } from "../../../../services/api/src/utils/jwt";
 
 describe("jwt utils", () => {
@@ -68,6 +70,50 @@ describe("jwt utils", () => {
     it("rejects garbage with UnauthorizedError", () => {
       expect(() => verifyRefreshToken("x.y.z")).toThrow(
         /Invalid refresh token/
+      );
+    });
+
+    it("issues distinct tokens for the same user in the same second (jti)", () => {
+      const a = signRefreshToken({ userId: "u9" });
+      const b = signRefreshToken({ userId: "u9" });
+      expect(a).not.toBe(b);
+      expect(hashToken(a)).not.toBe(hashToken(b));
+    });
+  });
+
+  describe("getTokenExpiry", () => {
+    it("returns the exp claim as a Date", () => {
+      const before = Date.now();
+      const exp = getTokenExpiry(signAccessToken({ userId: "u1" }));
+      // 15m TTL from the mock config (exp has 1s resolution).
+      expect(exp.getTime()).toBeGreaterThanOrEqual(before + 15 * 60_000 - 1000);
+      expect(exp.getTime()).toBeLessThanOrEqual(Date.now() + 15 * 60_000);
+    });
+
+    it("throws a 500 AppError for a token without exp", () => {
+      const noExp = jwt.sign({ userId: "u1" }, "x");
+      expect(() => getTokenExpiry(noExp)).toThrow(
+        expect.objectContaining({ statusCode: 500 })
+      );
+    });
+
+    it("throws for an undecodable token", () => {
+      expect(() => getTokenExpiry("garbage")).toThrow(/no expiry claim/);
+    });
+  });
+
+  describe("getTokenIssuedAt", () => {
+    it("returns the iat claim as a Date (second resolution)", () => {
+      const before = Math.floor(Date.now() / 1000) * 1000;
+      const iat = getTokenIssuedAt(signRefreshToken({ userId: "u1" }));
+      expect(iat.getTime()).toBeGreaterThanOrEqual(before);
+      expect(iat.getTime()).toBeLessThanOrEqual(Date.now());
+    });
+
+    it("throws a 500 AppError for a token without iat", () => {
+      const noIat = jwt.sign({ userId: "u1" }, "x", { noTimestamp: true });
+      expect(() => getTokenIssuedAt(noIat)).toThrow(
+        expect.objectContaining({ statusCode: 500 })
       );
     });
   });

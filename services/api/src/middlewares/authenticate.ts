@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { AppError, UnauthorizedError } from "../utils/errors";
-import { verifyAccessToken } from "../utils/jwt";
+import { getTokenIssuedAt, verifyAccessToken } from "../utils/jwt";
 import { User } from "../models";
 
 /**
@@ -73,6 +73,19 @@ export async function authenticate(
     // Check if user is active
     if (!user.isActive) {
       throw new UnauthorizedError("Account is deactivated");
+    }
+
+    // Reject access tokens issued before a deliberate revoke-all (logout-all,
+    // password set/change, Google linking). `iat` has whole-second precision,
+    // so compare against the start of the revoke's second: tokens issued in
+    // that same second are allowed — otherwise the fresh pair issued right
+    // after a password change would be rejected too.
+    if (user.sessionsRevokedAt) {
+      const revokedSecondMs =
+        Math.floor(new Date(user.sessionsRevokedAt).getTime() / 1000) * 1000;
+      if (getTokenIssuedAt(token).getTime() < revokedSecondMs) {
+        throw new UnauthorizedError("Session has been revoked");
+      }
     }
 
     // Attach user to request object

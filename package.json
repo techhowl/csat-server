@@ -22,16 +22,17 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:integration": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=dev -- env MONGO_DB_NAME=csat_test vitest run --coverage",
-    "dev:api": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=dev -- npm run dev -w @csat/api",
-    "dev:worker": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=dev -- npm run dev -w @csat/worker",
-    "dev:scheduler": "infisical run --projectId=$INFISICAL_PROJECT_ID --env=dev -- npm run dev -w @csat/scheduler"
+    "test:integration": "vitest run --mode integration --coverage",
+    "dev:api": "npm run dev -w @csat/api",
+    "dev:worker": "npm run dev -w @csat/worker",
+    "dev:scheduler": "npm run dev -w @csat/scheduler"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@types/node": "^22.10.2",
     "@types/supertest": "^7.2.0",
     "@vitest/coverage-v8": "^4.1.9",
+    "dotenv": "^16.6.1",
     "eslint": "^9.17.0",
     "eslint-config-prettier": "^10.1.8",
     "nodemon": "^3.1.9",

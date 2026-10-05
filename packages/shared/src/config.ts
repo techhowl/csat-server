@@ -35,6 +35,14 @@ function int(name: string, fallback: number): number {
   return parsed;
 }
 
+// Comma-separated list → trimmed, lowercased, empties dropped.
+function list(name: string, fallback: string): string[] {
+  return optional(name, fallback)
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 const nodeEnv = optional("NODE_ENV", "development") as NodeEnv;
 
 export const config = {
@@ -73,6 +81,22 @@ export const config = {
     // Password pepper adds an additional layer of security to password hashing
     // This should be a long, random string that's kept secret
     passwordPepper: required("PASSWORD_PEPPER"),
+  },
+
+  google: {
+    // OAuth 2.0 Web client ID — the expected `aud` of Google ID tokens. Not a
+    // secret. Optional so environments without Google sign-in still boot;
+    // POST /auth/google answers 503 while it is empty.
+    clientId: optional("GOOGLE_CLIENT_ID", ""),
+    // Google Workspace domains allowed to sign in / sign up with Google. Local
+    // email+password signup is NOT restricted by this.
+    allowedDomains: list("GOOGLE_ALLOWED_DOMAINS", "howl.in"),
+  },
+
+  cors: {
+    // Browser origins allowed to call the API cross-origin. Empty = CORS off
+    // (same-origin only), which is the safe default.
+    origins: list("CORS_ORIGINS", ""),
   },
 } as const;
 

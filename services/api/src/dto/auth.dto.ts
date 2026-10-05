@@ -64,13 +64,21 @@ const strongPasswordSchema = z
  * Accepts an optional leading `+` followed by 8–15 digits (the E.164 range).
  * Kept optional to mirror the User model, where `mobileNumber` is sparse.
  */
-const mobileNumberSchema = z
+const e164Schema = z
   .string()
   .trim()
   .regex(/^\+?[1-9]\d{7,14}$/, {
     error: "Please provide a valid mobile number in E.164 format",
-  })
-  .optional();
+  });
+
+const mobileNumberSchema = e164Schema.optional();
+
+/** Display name: trimmed, 2–100 characters. Shared by signup and profile update. */
+const nameSchema = z
+  .string({ error: "Name is required" })
+  .trim()
+  .min(2, { error: "Name must be at least 2 characters long" })
+  .max(100, { error: "Name must be at most 100 characters long" });
 
 /**
  * POST /auth/signup — local account creation.
@@ -81,11 +89,7 @@ const mobileNumberSchema = z
  */
 export const signupSchema = z
   .object({
-    name: z
-      .string({ error: "Name is required" })
-      .trim()
-      .min(2, { error: "Name must be at least 2 characters long" })
-      .max(100, { error: "Name must be at most 100 characters long" }),
+    name: nameSchema,
     email: emailSchema,
     password: strongPasswordSchema,
     mobileNumber: mobileNumberSchema,
@@ -126,9 +130,76 @@ export const refreshSchema = z
   .strict();
 
 /**
+ * POST /auth/google — sign in / sign up with a Google ID token.
+ *
+ * `idToken` is the `credential` the Google Identity Services button hands the
+ * frontend. Only presence is checked here; signature, audience, expiry and the
+ * allowed-domain rule are enforced in utils/google.ts.
+ */
+export const googleAuthSchema = z
+  .object({
+    idToken: z
+      .string({ error: "Google ID token is required" })
+      .min(1, { error: "Google ID token is required" }),
+  })
+  .strict();
+
+/**
+ * Profile image URL. https only, so `javascript:` / `data:` / plain-http URLs
+ * can never end up in an <img src> the frontend renders.
+ */
+const profileImageSchema = z
+  .string()
+  .trim()
+  .max(2048, { error: "Profile image URL must be at most 2048 characters" })
+  .pipe(
+    z.url({
+      protocol: /^https$/,
+      error: "Profile image must be an https URL",
+    })
+  );
+
+/**
+ * PATCH /auth/me — update the authenticated user's own profile.
+ *
+ * Every field is optional, but at least one must be sent. `null` removes
+ * `mobileNumber` / `profileImage`. Email, role, isActive, accessScopes,
+ * provider and googleId are server-owned and rejected by `.strict()`.
+ *
+ * Password rules that depend on the account (whether a password is already
+ * set, whether currentPassword matches) are enforced in the service; here we
+ * only require that currentPassword never comes without newPassword.
+ */
+export const updateProfileSchema = z
+  .object({
+    name: nameSchema.optional(),
+    mobileNumber: e164Schema.nullable().optional(),
+    profileImage: profileImageSchema.nullable().optional(),
+    currentPassword: z
+      .string()
+      .min(1, { error: "Current password must not be empty" })
+      .optional(),
+    newPassword: strongPasswordSchema.optional(),
+  })
+  .strict()
+  .refine((body) => Object.values(body).some((v) => v !== undefined), {
+    error: "Provide at least one field to update",
+  })
+  .refine(
+    (body) =>
+      body.currentPassword === undefined || body.newPassword !== undefined,
+    {
+      error: "newPassword is required when currentPassword is provided",
+      path: ["newPassword"],
+    }
+  );
+
+/**
  * Inferred TS types — the single source of truth for handler/service inputs.
  * After `validate(signupSchema)`, `req.body` is exactly `SignupInput`.
  */
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
+export type GoogleAuthInput = z.infer<typeof googleAuthSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

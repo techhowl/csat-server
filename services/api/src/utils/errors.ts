@@ -68,6 +68,19 @@ export class NotFoundError extends AppError {
 }
 
 /**
+ * Error thrown when a feature is deliberately unavailable (e.g. not configured
+ * on this server). Unlike other 5xx errors, its message is written for the
+ * client and IS returned by the error handler — so only use it with fixed,
+ * safe messages.
+ * Returns HTTP 503 Service Unavailable status.
+ */
+export class ServiceUnavailableError extends AppError {
+  constructor(message: string) {
+    super(message, 503);
+  }
+}
+
+/**
  * Error thrown when a request conflicts with current state.
  * Used for duplicate entries, version conflicts, or business rule violations.
  * Returns HTTP 409 Conflict status.

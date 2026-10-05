@@ -1,5 +1,7 @@
 import express, { type Application } from "express";
 import helmet from "helmet";
+import cors from "cors";
+import { config } from "@csat/shared";
 import { mountDocs } from "@csat/http";
 import { router } from "./routes";
 import { apiSpec } from "./docs/openapi";
@@ -23,6 +25,13 @@ export function createApp(): Application {
 
   // Baseline security headers.
   app.use(helmet());
+
+  // CORS for browser frontends on other origins (e.g. the Google sign-in
+  // page). Off unless CORS_ORIGINS is set; only listed origins are allowed.
+  // Auth uses Bearer headers, not cookies, so credentials stay disabled.
+  if (config.cors.origins.length > 0) {
+    app.use(cors({ origin: [...config.cors.origins] }));
+  }
 
   // Bounded body parsing — cap payload size to blunt trivial DoS via huge bodies.
   app.use(express.json({ limit: "100kb" }));
